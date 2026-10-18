@@ -289,3 +289,50 @@ Thanks to everyone who makes this project better:
 - [@RunicBean](https://github.com/RunicBean): editor keyboard shortcuts, a separate action toolbar, and the on-canvas color usage panel ([PR #1](https://github.com/Jett-Wu/Perler_Beads_Generator/pull/1))
 
 Issues and pull requests are welcome.
+
+### 图纸集市与后端
+
+编辑器第二行的「图纸集市」打开列表，「提交图纸」可公开提交当前画布，也可上传编辑器导出的 JSON。支持搜索、分类、排序、收藏、详情预览、MARD 用量、JSON 下载和载入编辑器。
+
+需要 Node.js 20.12 或以上。`npm run dev` 构建并启动同源的前端与 API；`npm run build` 后可用 `npm start` 启动。默认地址为 `http://127.0.0.1:5174/`。
+
+```bash
+npm test
+npm run build
+cp .env.example .env
+# 填写 .env 中的 Supabase URL 和服务端密钥后运行
+HOST=0.0.0.0 PORT=5174 npm start
+```
+
+- `GET /api/health`：健康检查。
+- `GET /api/patterns?page=1&limit=24&q=关键词&category=其他`：分页图纸列表，limit 为 1–100。
+- `GET /api/patterns/:id`：图纸详情，不存在返回 404。
+- `POST /api/patterns`：JSON 请求，包含 title、author（可选）、description（可选）、category、project。成功返回 201 和服务端生成的 ID/时间。
+
+服务端校验名称、分类、尺寸、图层与 MARD 色号，并按可见图层重新合成格子。图纸信息与完整图纸 JSON 存入 Supabase PostgreSQL 的 `public.marketplace_patterns` 表。分页、搜索、分类和总数查询在数据库执行，不再读写本地数据目录。应用请求体上限仍为 5 MB；托管平台可能有更小的请求限制。
+
+#### Supabase 配置
+
+1. 创建 Supabase 项目，在 SQL Editor 执行 `supabase/migrations/202610180001_marketplace.sql`（新建表与查询函数，执行一次）。也可以用 Supabase CLI 的迁移流程应用此文件。
+2. 在项目设置获取 Project URL，以及服务端 Secret key（`sb_secret_...`）。旧版 `service_role` key 也受支持。
+3. 本地复制 `.env.example` 为 `.env`，填写 `SUPABASE_URL` 和 `SUPABASE_SECRET_KEY`。若使用旧版密钥，填写 `SUPABASE_SERVICE_ROLE_KEY`，并移除 `SUPABASE_SECRET_KEY` 占位值。
+4. 启动服务，访问 `/api/health`，成功时返回 `{"status":"ok","database":"supabase"}`。未配置或数据库不可用时返回 503。
+
+Secret/service_role key 仅由 Node API 使用，不要配置成任何前端公开变量。表启用 RLS，撤销 anon/authenticated 的访问权限；查询函数只授权 service_role 执行。数据库不会直接接收浏览器写入，浏览器仍通过经过校验的 `/api/patterns` 提交图纸。参考 [Supabase API keys](https://supabase.com/docs/guides/getting-started/api-keys) 和 [RLS](https://supabase.com/docs/guides/database/postgres/row-level-security)。
+
+旧版 `data/marketplace/*.json` 不会自动迁移或删除；已有图纸可以载入编辑器后重新提交。浏览器 localStorage 作品同样不会自动公开。
+
+#### Vercel 部署
+
+仓库的 `vercel.json` 已设置 `npm run build`、静态输出 `generated/dist`、API rewrite 和色卡文件打包；`api/index.js` 复用本地 Node API。无需启动长驻进程，也不需要可写磁盘。
+
+1. 将仓库导入 Vercel，保留仓库中的构建配置。
+2. 在 Vercel 项目的 Environment Variables 中设置 `SUPABASE_URL` 和 `SUPABASE_SECRET_KEY`（或旧版 `SUPABASE_SERVICE_ROLE_KEY`），按需应用到 Production/Preview。
+3. 完成 Supabase 建表后部署；环境变量修改后需重新部署。
+4. 检查 `/api/health`，再通过集市提交一份图纸，并在另一个浏览器打开其详情链接验证共享。
+
+当前自动测试使用模拟的数据库响应，覆盖 Supabase 请求构造、API 校验、错误处理和 Vercel 解析后的请求体；没有凭据时不能验证真实 Supabase 项目的 schema、权限及线上连通性。
+
+图纸通过 `/#marketplace/<id>` 分享，同一服务器的其他浏览器可以访问。收藏仍保存在各自浏览器。旧版 localStorage 图纸保留在列表中，不会自动公开，需手动提交后才能共享。连接失败时显示本地图纸和重试入口，禁止公开提交。
+
+GitHub Pages 只提供静态托管，不能运行这个后端。共享版本可部署至 Vercel，或自行托管 Node 服务。当前 API 支持匿名提交，不提供账号、修改、删除或审核接口；后续可增加提交限流、登录、作品管理与审核。

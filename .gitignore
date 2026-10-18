@@ -44,3 +44,6 @@ release-smoke*.png
 *_release_smoke.png
 *.local
 *.local.*
+
+# Marketplace persistent data
+data/

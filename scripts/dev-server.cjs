@@ -1,6 +1,10 @@
+// Node 20.12+ loads local server secrets without adding them to frontend builds.
+try { process.loadEnvFile(); } catch (error) { if (error.code !== 'ENOENT') throw error; }
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const { createMarketplaceHandler } = require('../server/marketplace.cjs');
+const handleApi = createMarketplaceHandler();
 
 const generated = path.join(process.cwd(), 'generated');
 const root = path.join(generated, 'dist');
@@ -17,12 +21,18 @@ const types = {
 };
 
 http
-  .createServer((request, response) => {
-    let requestPath = decodeURIComponent(request.url.split('?')[0]);
+  .createServer(async (request, response) => {
+    let url;
+    try { url = new URL(request.url, `http://${request.headers.host || 'localhost'}`); }
+    catch { response.writeHead(400); response.end('Bad request'); return; }
+    if (await handleApi(request, response, url)) return;
+    let requestPath;
+    try { requestPath = decodeURIComponent(url.pathname); }
+    catch { response.writeHead(400); response.end('Bad request'); return; }
     if (requestPath === '/') requestPath = '/index.html';
     const filePath = path.normalize(path.join(root, requestPath));
 
-    if (!filePath.startsWith(root)) {
+    if (!filePath.startsWith(root + path.sep)) {
       response.writeHead(403);
       response.end('Forbidden');
       return;
@@ -43,7 +53,7 @@ http
     fs.writeFileSync(path.join(generated, 'dev-server.err'), `${error.stack || error}\n`);
     process.exit(1);
   })
-  .listen(port, '127.0.0.1', () => {
+  .listen(port, process.env.HOST || '127.0.0.1', () => {
     fs.mkdirSync(generated, { recursive: true });
     fs.writeFileSync(path.join(generated, 'dev-server.log'), `Perler Beads Generator is running at http://127.0.0.1:${port}/\n`);
   });

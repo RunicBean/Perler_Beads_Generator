@@ -1,4 +1,5 @@
-﻿import WorkspaceCanvas from './WorkspaceCanvas';
+import Marketplace from './Marketplace';
+import WorkspaceCanvas from './WorkspaceCanvas';
 import ThreePreview from './ThreePreview';
 import { downloadPrintPdf, downloadPrintPng, downloadProjectJson, downloadUsageWorkbook } from './exporters';
 import type { PrintExportOptions } from './exporters';
@@ -504,6 +505,13 @@ type AdjustmentSettings = {
 };
 
 export default function App() {
+  const [marketOpen, setMarketOpen] = useState(() => window.location.hash.startsWith('#marketplace'));
+  const [marketSubmit, setMarketSubmit] = useState(false);
+  useEffect(() => {
+    const sync = () => setMarketOpen(window.location.hash.startsWith('#marketplace'));
+    window.addEventListener('hashchange', sync);
+    return () => window.removeEventListener('hashchange', sync);
+  }, []);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const referenceInputRef = useRef<HTMLInputElement | null>(null);
   const jsonInputRef = useRef<HTMLInputElement | null>(null);
@@ -762,6 +770,7 @@ export default function App() {
 
   useEffect(() => {
     function onPaste(event: ClipboardEvent) {
+      if (window.location.hash.startsWith('#marketplace')) return;
       const file = [...(event.clipboardData?.files ?? [])].find((item) => item.type.startsWith('image/'));
       if (file) handleImageFile(file);
     }
@@ -827,6 +836,7 @@ export default function App() {
     }
 
     function onToolKeyDown(event: KeyboardEvent) {
+      if (window.location.hash.startsWith('#marketplace')) return;
       if (event.defaultPrevented || event.isComposing || event.repeat) return;
       if (event.ctrlKey || event.metaKey || event.altKey) {
         clearColorInput();
@@ -1007,6 +1017,7 @@ export default function App() {
 
   useEffect(() => {
     function onHistoryKeyDown(event: KeyboardEvent) {
+      if (window.location.hash.startsWith('#marketplace')) return;
       if (event.defaultPrevented || event.isComposing || event.altKey || !(event.ctrlKey || event.metaKey)) return;
       const target = event.target;
       if (target instanceof HTMLElement && (target.isContentEditable || target.closest('input, textarea, select, [role="textbox"]'))) return;
@@ -1445,7 +1456,27 @@ export default function App() {
   }
 
   return (
+    <>
+      {marketOpen && <Marketplace
+        current={project}
+        quickSubmit={marketSubmit}
+        onClose={() => { window.location.hash = ''; setMarketOpen(false); setMarketSubmit(false); }}
+        onEdit={(next) => {
+          generationRequestRef.current += 1;
+          soloVisibilitySnapshotRef.current = null;
+          commitHistory();
+          setProject(next);
+          setCanvasWidth(next.width);
+          setCanvasHeight(next.height);
+          setPendingFile(null);
+          setPendingImageUrl((url) => { if (url) URL.revokeObjectURL(url); return null; });
+          window.location.hash = '';
+          setMarketOpen(false);
+          setMarketSubmit(false);
+        }}
+      />}
     <main
+      style={marketOpen ? { display: 'none' } : undefined}
       className="app-shell"
       onDragOver={(event) => event.preventDefault()}
       onDrop={(event) => {
@@ -1640,6 +1671,9 @@ export default function App() {
               <span className="project-action-divider" aria-hidden="true" />
               <button className="project-action-button history-action" onClick={undo} disabled={past.length === 0} title={`${text.undo} (Ctrl+Z / ⌘Z)`} aria-keyshortcuts="Control+Z Meta+Z"><UndoIcon /><span>{text.undo}</span></button>
               <button className="project-action-button history-action" onClick={redo} disabled={future.length === 0} title={`${text.redo} (Ctrl+Shift+Z / ⌘⇧Z / Ctrl+Y)`} aria-keyshortcuts="Control+Shift+Z Meta+Shift+Z Control+Y"><RedoIcon /><span>{text.redo}</span></button>
+              <span className="project-action-divider" aria-hidden="true" />
+              <button className="project-action-button" onClick={() => { setMarketSubmit(false); setMarketOpen(true); window.location.hash = 'marketplace'; }}>{language === 'zh' ? '图纸集市' : 'Marketplace'}</button>
+              <button className="project-action-button" onClick={() => { setMarketSubmit(true); setMarketOpen(true); window.location.hash = 'marketplace'; }}>{language === 'zh' ? '提交图纸' : 'Submit pattern'}</button>
             </div>
       </div>
 
@@ -2915,6 +2949,7 @@ export default function App() {
         </div>
       )}
     </main>
+    </>
   );
 }
 
