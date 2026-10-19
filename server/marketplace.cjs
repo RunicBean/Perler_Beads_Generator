@@ -1,3 +1,4 @@
+const { publicListing } = require('./preview.cjs');
 const { createAccounts } = require('./accounts.cjs');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -66,7 +67,7 @@ function createMarketplaceHandler({ store = createSupabaseStore() } = {}) {
       if (await accounts.route(request, response, url, body, json)) return true;
       if (url.pathname === '/api/health' && request.method === 'GET') { await store.health(); json(response, 200, { status: 'ok', database: 'supabase' }); return true; }
       const collection = url.pathname === '/api/patterns';
-      const match = url.pathname.match(/^\/api\/patterns\/([a-f0-9-]{36})$/);
+      const match = url.pathname.match(/^\/api\/patterns\/([a-f0-9-]{36})(\/project)?$/);
       if (!collection && !match) { json(response, 404, { error: '接口不存在。' }); return true; }
       if (request.method === 'GET' && collection) {
         const page = Number(url.searchParams.get('page') || 1);
@@ -74,11 +75,13 @@ function createMarketplaceHandler({ store = createSupabaseStore() } = {}) {
         if (!Number.isInteger(page) || page < 1 || !Number.isInteger(limit) || limit < 1 || limit > 100) fail('分页参数无效。');
         const q = (url.searchParams.get('q') || '').toLowerCase();
         const category = url.searchParams.get('category');
-        json(response, 200, await store.list({ page, limit, q, category }));
+        const result = await store.list({ page, limit, q, category });
+        json(response, 200, { ...result, items: result.items.map(publicListing) });
       } else if (request.method === 'GET' && match) {
+        if (match[2] && !await accounts.user(request)) fail('请先登录后再载入或下载图纸。', 401);
         const item = await store.get(match[1]);
         if (!item) fail('图纸不存在。', 404);
-        json(response, 200, item);
+        json(response, 200, match[2] ? item : publicListing(item));
       } else if (request.method === 'POST' && collection) {
         if (request.headers.origin) {
           let origin;

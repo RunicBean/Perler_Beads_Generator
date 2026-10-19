@@ -15,14 +15,14 @@ export function track(name: string) {
     void api('analytics/events', { name, visitorId, sessionId, source: document.referrer }).catch(() => {});
   } catch { /* Statistics must never interrupt editing. */ }
 }
-export default function Account() {
+export default function Account({ recordVisit = true }: { recordVisit?: boolean }) {
   const [user, setUser] = useState<User | null>(null);
   const [open, setOpen] = useState(false);
   const [register, setRegister] = useState(false);
   const [username, setUsername] = useState(''); const [password, setPassword] = useState('');
   const [error, setError] = useState(''); const [busy, setBusy] = useState(false);
   const [statsOpen, setStatsOpen] = useState(false); const [days, setDays] = useState(7); const [stats, setStats] = useState<any>(null);
-  useEffect(() => { void api('auth/me').then(r => setUser(r.user)).catch(() => {}); track('page_view'); const change = () => { if (location.hash.startsWith('#marketplace')) track('marketplace_view'); }; change(); window.addEventListener('hashchange', change); return () => window.removeEventListener('hashchange', change); }, []);
+  useEffect(() => { void api('auth/me').then(r => setUser(r.user)).catch(() => {}); if (recordVisit) track('page_view'); const change = () => { if (recordVisit && location.hash.startsWith('#marketplace')) track('marketplace_view'); }; change(); window.addEventListener('hashchange', change); return () => window.removeEventListener('hashchange', change); }, []);
   useEffect(() => { if (!statsOpen) return; let active = true; setStats(null); setError(''); void api(`analytics?days=${days}`).then(r => { if (active) setStats(r); }).catch(e => { if (active) setError(e.message); }); return () => { active = false; }; }, [statsOpen, days]);
   async function submit(e: React.FormEvent) { e.preventDefault(); setBusy(true); setError(''); try { const r = await api(`auth/${register ? 'register' : 'login'}`, { username, password }); setUser(r.user); setPassword(''); setOpen(false); } catch (e) { setError((e as Error).message); } finally { setBusy(false); } }
   return <div className="account-controls">

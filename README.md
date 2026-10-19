@@ -348,3 +348,5 @@ GitHub Pages 只提供静态托管，不能运行这个后端。共享版本可�
 账号尝试按账号在数据库内限制为每 15 分钟 10 次，统计事件按访客每分钟限制 60 次。遇到限流请稍后重试。生产运营仍应配置平台入口限流以控制恶意流量。会话过期后需重新登录；可定期删除过期 `app_sessions` 与不再需要的 `app_events`。当前不含密码找回和账号管理功能。
 
 新增 API：`POST /api/auth/register`、`POST /api/auth/login`（username、password），`GET /api/auth/me`，`POST /api/auth/logout`，`POST /api/analytics/events`，`GET /api/analytics?days=7`（仅管理员）。所有新表开启 RLS，仅服务端 service_role 可访问。
+
+集市公开列表与详情仅返回 PNG 预览和基本信息，不包含图纸格子或图层。预览采用连续色块，不显示圆形拼豆、色号或点状背景。载入及 JSON 下载通过 `GET /api/patterns/:id/project` 获取完整图纸，该接口要求有效登录会话；未登录可在集市右上角注册或登录。此调整无需新增数据库迁移。

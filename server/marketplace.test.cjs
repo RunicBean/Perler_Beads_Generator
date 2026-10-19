@@ -88,3 +88,33 @@ test('Vercel rewrite dispatches collection requests through the shared API', asy
   assert.equal(status, 405);
   assert.match(payload.error, /请求方法/);
 });
+
+test('public endpoints expose flat PNG previews, full projects require a valid session', async () => {
+  const id = '12345678-1234-1234-1234-123456789012';
+  const item = { ...input, id, project };
+  const store = {
+    async list() { return { items: [item], total: 1 }; },
+    async get() { return item; },
+    async session() { return { id: 'user', username: 'tester' }; },
+  };
+  const handler = createMarketplaceHandler({ store });
+  for (const route of ['/api/patterns', `/api/patterns/${id}`]) {
+    const response = await call(handler, 'GET', route, undefined, { cookie: '' });
+    assert.equal(response.status, 200);
+    const listing = response.data.items?.[0] || response.data;
+    assert.equal(listing.project, undefined);
+    assert.equal(listing.width, 2);
+    assert.match(listing.preview, /^data:image\/png;base64,/);
+    const png = Buffer.from(listing.preview.split(',')[1], 'base64');
+    const { inflateSync } = require('node:zlib');
+    let offset = 8, pixels;
+    while (offset < png.length) { const length = png.readUInt32BE(offset); if (png.toString('ascii', offset+4,offset+8) === 'IDAT') pixels = inflateSync(png.subarray(offset+8,offset+8+length)); offset += length+12; }
+    assert.equal(pixels.length, 18);
+    assert.equal(pixels[4], 255); // Solid pixel with no bead-shaped gaps.
+    assert.equal(pixels[8], 0); // Empty cell remains transparent.
+  }
+  assert.equal((await call(handler, 'GET', `/api/patterns/${id}/project`, undefined, { cookie: '' })).status, 401);
+  const authenticated = await call(handler, 'GET', `/api/patterns/${id}/project`);
+  assert.equal(authenticated.status, 200);
+  assert.deepEqual(authenticated.data.project, project);
+});
