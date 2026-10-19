@@ -34,6 +34,7 @@ http
     try { requestPath = decodeURIComponent(url.pathname); }
     catch { response.writeHead(400); response.end('Bad request'); return; }
     if (requestPath === '/editor') requestPath = '/editor.html';
+    if (requestPath === '/en/editor') requestPath = '/en/editor.html';
     const filePath = path.normalize(path.join(root, requestPath));
 
     if (!filePath.startsWith(root + path.sep)) {

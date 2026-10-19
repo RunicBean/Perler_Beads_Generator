@@ -1,19 +1,20 @@
 const fs = require('fs');
 const path = require('path');
 
-const { site } = require('../server/public-pages.cjs');
-const html = `<!doctype html>
-<html lang="zh">
+const { site, home, guides, guidePage } = require('../server/public-pages.cjs');
+const { t, localePath, messages } = require('../shared/i18n/runtime.cjs');
+function editorHtml(locale) { return `<!doctype html>
+<html lang="${locale === 'en' ? 'en' : 'zh-CN'}">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="A powerful Perler bead pattern editor for turning images into printable bead charts with MARD color matching, layers, 3D preview, and usage exports."
+      content="${t('editor.description', {}, locale)}"
     />
-    <title>拼豆图纸编辑器｜Perler Beads Generator</title>
+    <title>${t('editor.title', {}, locale)}</title>
     <meta name="robots" content="noindex,follow" />
-    <link rel="canonical" href="${site()}/editor" />
+    <link rel="canonical" href="${site()}${localePath('/editor',locale)}" />
     <link rel="stylesheet" href="/styles.css" />
     <script type="importmap">
       {
@@ -25,22 +26,27 @@ const html = `<!doctype html>
   </head>
   <body>
     <div id="root"></div>
+    <script src="/i18n.js"></script>
     <script src="/vendor/react.production.min.js"></script>
     <script src="/vendor/react-dom.production.min.js"></script>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>
-`;
+`; }
 
-fs.writeFileSync(path.join(process.cwd(), 'generated', 'dist', 'editor.html'), html);
-
-const { home, page, guides } = require('../server/public-pages.cjs');
 const dist = path.join(process.cwd(), 'generated/dist');
-fs.writeFileSync(path.join(dist, 'index.html'), home());
-for (const [url, content] of Object.entries(guides)) {
- const dir = path.join(dist, url); fs.mkdirSync(dir, { recursive: true });
- fs.writeFileSync(path.join(dir, 'index.html'), page({ ...content, path: url }));
+fs.mkdirSync(path.join(dist, 'en'), { recursive: true });
+fs.writeFileSync(path.join(dist, 'editor.html'), editorHtml('zh'));
+fs.writeFileSync(path.join(dist, 'en/editor.html'), editorHtml('en'));
+for (const locale of ['zh','en']) {
+ const homeFile = locale === 'en' ? 'en/index.html' : 'index.html';
+ fs.writeFileSync(path.join(dist, homeFile), home(locale));
+ for (const url of Object.keys(guides)) {
+  const dir = path.join(dist, localePath(url, locale)); fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'index.html'), guidePage(url, locale));
+ }
 }
+fs.writeFileSync(path.join(dist, 'i18n.js'), 'globalThis.PERLER_MESSAGES = ' + JSON.stringify(messages).replace(/</g, '\\u003c') + ';');
 fs.copyFileSync(path.join(process.cwd(), 'src/public.css'), path.join(dist, 'public.css'));
 fs.mkdirSync(path.join(dist, 'examples'), { recursive: true });
 for (const name of ['cartoon-source.png','cartoon-pattern.png']) fs.copyFileSync(path.join(process.cwd(), 'docs', name), path.join(dist,'examples',name));

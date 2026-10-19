@@ -1,3 +1,5 @@
+import { editorMessages } from './editorMessages';
+import { useLocale, localePath, t } from './i18n';
 import Account, { track } from './Account';
 import Marketplace from './Marketplace';
 import WorkspaceCanvas from './WorkspaceCanvas';
@@ -11,439 +13,6 @@ import { findIsolatedBeads, summarizeUsage } from './usage';
 import type { ArrowKind, BackgroundMode, BeadProject, ClipboardPattern, CopyMode, GenerationStyle, MirrorDirection, MoveMode, RemoveMode, RightClickAction, ShapeFillMode, ShapeKind, TextDirection, ToolId } from './types';
 
 const { useEffect, useMemo, useRef, useState } = React;
-
-type Language = 'zh' | 'en';
-
-const languageKey = 'perler-beads-generator:language';
-
-const ui: Record<Language, any> = {
-    zh: {
-        appName: '拼豆图纸生成器',
-        board: '拼豆板',
-        apply: '应用',
-        commonSizes: '常用尺寸',
-        rightClick: '右键',
-        rightClickHint: '右键平移用于拖动画布；右键擦除只清除落点格子，不受橡皮大小影响。',
-        pan: '平移',
-        erase: '擦除',
-        new: '新建',
-        clear: '清空',
-        undo: '撤销',
-        redo: '重做',
-        exportPatternFull: '导出图纸',
-        exportUsageFull: '导出用量',
-        exportRecordFull: '导出编辑',
-        importRecordFull: '导入编辑',
-        exportPatternTitle: '导出图纸',
-        exportUsageTitle: '导出用量清单 Excel',
-        exportRecordTitle: '导出编辑记录 JSON',
-        importRecordTitle: '导入历史记录 JSON',
-        usageExported: '用量清单 Excel 已导出。',
-        recordExported: '编辑记录 JSON 已导出。',
-        recordImported: '编辑记录已导入，可继续编辑。',
-        invalidRecord: '这个文件不是有效的拼豆编辑记录。',
-        unreadableRecord: '无法读取这个编辑记录 JSON。',
-        printExportSettings: '图纸设置',
-        showColorCodes: '显示色号',
-        showGuideLines: '辅助线',
-        projectNickname: '作品昵称',
-        authorNickname: '作者昵称',
-        exportFormat: '导出格式',
-        exportBounds: '导出范围',
-        exportPatternBounds: '图案尺寸',
-        exportCanvasBounds: '画布尺寸',
-        optional: '可选',
-        exportNow: '导出',
-        preview3d: '3D 预览',
-        liveBoard: '实时画板视图',
-        previewEmpty: '暂无 3D 预览',
-        imageToPattern: '导入图片生成',
-        referenceImage: '参考图',
-        uploadReferenceImage: '上传参考图',
-        showReferenceImage: '显示参考图',
-        referenceOpacity: '透明度',
-        referenceAdjust: '拖动/缩放',
-        referenceAdjustHint: '正在拖动/缩放参考图',
-        resetReferenceTransform: '重置位置',
-        referencePlacement: '显示位置',
-        referenceBelow: '拼豆下方',
-        referenceAbove: '拼豆上方',
-        referenceHint: '作为临摹底稿',
-        ready: '已选择',
-        noImage: '未选择图片',
-        uploadImage: '上传图片',
-        width: '宽度',
-        colors: '色数上限',
-        colorsHint: '生成时使用的拼豆颜色数量上限；数值越低越简洁，越高越细腻。',
-        generationStyle: '生成风格',
-        generationStyleCartoon: '卡通',
-        generationStyleRealistic: '写实',
-        tolerance: '容差',
-        toleranceHint: '容差越大，越多接近背景色的像素会被去除；容差越小，边缘保留越多。',
-        background: '背景',
-        keepBackground: '保留背景',
-        removeWhite: '去除背景',
-        preparingPattern: '正在生成图案',
-        autoGenerateHint: '调整参数后会自动更新画布。',
-        palette: '调色盘',
-        adjustments: '调整',
-        adjustmentTitle: '当前图层调整',
-        brightness: '亮度',
-        contrast: '对比度',
-        saturation: '饱和度',
-        temperature: '色温',
-        hue: '色相',
-        resetAdjustments: '重置调整',
-        adjustmentHint: '滑动会直接调整当前图层，可用撤销恢复。',
-        adjustmentLocked: '当前图层已锁定，无法应用调整。',
-        colorCleanup: '颜色整理',
-        colorCleanupHint: '合并相近色，减少碎色。',
-        applyColorCleanup: '整理相近颜色',
-        colorLimit: '色数上限',
-        colorLimitHint: '限制当前图层颜色数。',
-        applyColorLimit: '应用色数上限',
-        layerColorsCleaned: (count: number) => (count > 0 ? `已整理 ${count} 颗拼豆。` : '当前图层没有需要整理的相近颜色。'),
-        layerColorsLimited: (count: number, limit: number) => (count > 0 ? `已将当前图层限制到最多 ${limit} 色。` : `当前图层已经不超过 ${limit} 色。`),
-        effects: '效果',
-        invertEffect: '反色',
-        grayscaleEffect: '灰阶',
-        blackWhiteEffect: '黑白',
-        effectApplied: (name: string, count: number) => `已应用${name}，影响 ${count} 颗拼豆。`,
-        mardBasic: 'MARD 基础版（221色）',
-        mardComplete: 'MARD 完整版（291色）',
-        recentColors: '最近使用',
-        layers: '图层',
-        addLayer: '新建图层',
-        deleteLayer: '删除',
-        duplicateLayer: '复制图层',
-        renameLayer: '重命名图层',
-        reorderLayer: '拖动调整图层顺序',
-        activeLayer: '当前图层',
-        hiddenLayer: '已隐藏',
-        lockedLayer: '已锁定',
-        layerBeadCount: (count: number) => `${count} 颗`,
-        usage: '用量',
-        totalBeadsLabel: '总颗数',
-        colorTypes: '颜色数',
-        estimatedPacks: '预计包数',
-        beadsPerPack: '每包数量',
-        perPackUnit: '颗/包',
-        countedLayerTitle: '计入图层',
-        countAllLayers: '全部图层',
-        countCurrentLayer: '当前图层',
-        packUnit: '包',
-        noUsage: '暂无用量',
-        brandCodes: '色号品牌',
-        view: '视图',
-        beadShape: '豆子形状',
-        roundBeads: '圆形',
-        squareBeads: '方形',
-        layerOverlap: '重叠格子',
-        showActiveLayerOnly: '只看当前图层',
-        grid: '网格',
-        coordinates: '坐标',
-        countLayer: '计入用量',
-        eye: '显示',
-        lock: '锁定',
-        unlock: '解锁',
-        lockHint: '锁定后无法在这一层绘制或擦除',
-        unlockHint: '解锁后可以继续编辑这一层',
-        lockedCanvasHint: '当前图层已锁定',
-        manyColors: '颜色较多，可以降低颜色数量。',
-        countedLayers: (count: number) => `已计入 ${count} 个图层`,
-        noCountedLayers: '没有图层计入用量。',
-        cell: '格子',
-        hoverBoard: '移动到画布上',
-        empty: '空',
-        language: '语言',
-        fit: '适配',
-        close: '关闭',
-        expandPreview: '放大 3D 预览',
-        workspaceReady: '工作区已就绪。',
-        heightFromRatio: '高度将按图片比例计算。',
-        status: (width: number, height: number, beads: number, colors: number) => `${width} * ${height} - ${beads} 颗 - ${colors} 色`,
-        panelStatus: (width: number, height: number, colors: number, beads: number, boards: number) => `${width} * ${height} - ${colors} 色 - ${beads} 颗 - ${boards} 块板`,
-        isolatedBeads: (count: number) => (count > 0 ? `${count} 颗拼豆无相邻，熨烫时留意。` : '没有无相邻拼豆。'),
-        showIsolatedBeads: '显示无相邻拼豆',
-        hideIsolatedBeads: '隐藏无相邻拼豆',
-        eraserSize: '橡皮大小',
-        removeScope: '消除范围',
-        removeSameConnected: '同色连续',
-        removeAllSameColor: '所有同色',
-        removeConnected: '连续块',
-        moveScope: '选中范围',
-        moveLayer: '全图层',
-        movePartial: '局部',
-        panToolHint: '提示：使用其他工具时，右键默认用于拖动画布',
-        mirrorDirection: '镜像方向',
-        mirrorHorizontal: '左右',
-        mirrorVertical: '上下',
-        shapeType: '形状',
-        shapeStyle: '样式',
-        shapeOutline: '空心',
-        shapeFilled: '实心',
-        shapeLine: '直线',
-        shapeRectangle: '矩形',
-        shapeSquare: '正方',
-        shapeEllipse: '椭圆',
-        shapeCircle: '正圆',
-        shapeTriangle: '三角',
-        shapeArrow: '箭头',
-        arrowStyle: '箭头',
-        arrowSingle: '单向',
-        arrowDouble: '双向',
-        arrowBlock: '粗箭头',
-        textContent: '文字内容',
-        textDirection: '排列方向',
-        textHorizontal: '横排',
-        textVertical: '竖排',
-        textSize: '文字高度',
-        textSpacing: '文字间距',
-        textPlaceholder: '文字 / 数字 / 字母 / 符号',
-        clipboardPreview: '剪贴预览',
-        clipboardEmpty: <>先用复制工具选择<br />复制范围</>,
-        clipboardSize: (width: number, height: number, beads: number) => `${width} * ${height} - ${beads} 颗`,
-        resetClipboard: '重置剪贴预览',
-        copyScope: '复制范围',
-        copyConnected: '连续块',
-        copySelection: '多选拼豆',
-        copySelectionHint: '左键选择或取消要复制的拼豆',
-        copiedPattern: (width: number, height: number, beads: number) => `已复制 ${width} * ${height} 图案，${beads} 颗。`,
-        copySelectionUpdated: (beads: number) => `已选择 ${beads} 颗拼豆。`,
-        clipboardReset: '剪贴预览已重置。',
-        pastedPattern: '已粘贴图案。',
-        recoloredBeads: (count: number) => `已替换 ${count} 颗同色拼豆。`,
-        brushCells: (count: number) => `${formatBrushSize(count)} 格`,
-        tools: {
-            pencil: { title: '画笔', hint: '绘制拼豆' },
-            eraser: { title: '橡皮', hint: '清除格子' },
-            fill: { title: '填充', hint: '填充区域' },
-            remove: { title: '消除', hint: '清除连续区域' },
-            recolor: { title: '换色', hint: '替换同色拼豆' },
-            eyedropper: { title: '吸管', hint: '拾取颜色' },
-            move: { title: '移动', hint: '移动当前图层图案' },
-            copy: { title: '复制', hint: '复制连续图案' },
-            paste: { title: '粘贴', hint: '粘贴已复制图案' },
-            mirror: { title: '镜像', hint: '翻转当前图层图案' },
-            shape: { title: '形状', hint: '绘制基础几何图形' },
-            text: { title: '文字', hint: '插入点阵文字' },
-            pan: { title: '拖动', hint: '拖动画布' },
-        },
-    },
-    en: {
-        appName: 'Perler Beads Generator',
-        board: 'Pegboard',
-        apply: 'Apply',
-        commonSizes: 'Common sizes',
-        rightClick: 'Right click',
-        rightClickHint: 'Right-click pan drags the canvas; right-click erase clears only the pointed cell and ignores eraser size.',
-        pan: 'Pan',
-        erase: 'Erase',
-        new: 'New',
-        clear: 'Clear',
-        undo: 'Undo',
-        redo: 'Redo',
-        exportPatternFull: 'Export pattern',
-        exportUsageFull: 'Export usage',
-        exportRecordFull: 'Export edit',
-        importRecordFull: 'Import edit',
-        exportPatternTitle: 'Export pattern',
-        exportUsageTitle: 'Export usage workbook',
-        exportRecordTitle: 'Export edit record JSON',
-        importRecordTitle: 'Import edit history JSON',
-        usageExported: 'Usage workbook exported.',
-        recordExported: 'Edit record JSON exported.',
-        recordImported: 'Edit record imported. You can keep editing.',
-        invalidRecord: 'This file is not a valid edit record.',
-        unreadableRecord: 'Could not read this edit record JSON.',
-        printExportSettings: 'Pattern settings',
-        showColorCodes: 'Color codes',
-        showGuideLines: 'Guide lines',
-        projectNickname: 'Pattern name',
-        authorNickname: 'Author name',
-        exportFormat: 'Export format',
-        exportBounds: 'Export bounds',
-        exportPatternBounds: 'Pattern size',
-        exportCanvasBounds: 'Canvas size',
-        optional: 'Optional',
-        exportNow: 'Export',
-        preview3d: '3D Preview',
-        liveBoard: 'Live board view',
-        previewEmpty: 'No 3D preview yet',
-        imageToPattern: 'Import Image',
-        referenceImage: 'Reference Image',
-        uploadReferenceImage: 'Upload reference',
-        showReferenceImage: 'Show reference',
-        referenceOpacity: 'Opacity',
-        referenceAdjust: 'Move/scale',
-        referenceAdjustHint: 'Moving/scaling reference image',
-        resetReferenceTransform: 'Reset position',
-        referencePlacement: 'Display position',
-        referenceBelow: 'Below beads',
-        referenceAbove: 'Above beads',
-        referenceHint: 'Tracing guide',
-        ready: 'Ready',
-        noImage: 'No image',
-        uploadImage: 'Upload image',
-        width: 'Width',
-        colors: 'Color limit',
-        colorsHint: 'Maximum bead colors used in generation; lower is simpler, higher keeps more detail.',
-        generationStyle: 'Style',
-        generationStyleCartoon: 'Cartoon',
-        generationStyleRealistic: 'Realistic',
-        tolerance: 'Tolerance',
-        toleranceHint: 'Higher tolerance removes more pixels close to the background color; lower tolerance keeps more edge detail.',
-        background: 'Background',
-        keepBackground: 'Keep background',
-        removeWhite: 'Remove background',
-        preparingPattern: 'Generating pattern',
-        autoGenerateHint: 'Changes update the canvas automatically.',
-        palette: 'Palette',
-        adjustments: 'Adjust',
-        adjustmentTitle: 'Active layer adjustment',
-        brightness: 'Brightness',
-        contrast: 'Contrast',
-        saturation: 'Saturation',
-        temperature: 'Temperature',
-        hue: 'Hue',
-        resetAdjustments: 'Reset adjustments',
-        adjustmentHint: 'Sliders adjust the active layer directly; Undo can restore it.',
-        adjustmentLocked: 'The active layer is locked.',
-        colorCleanup: 'Color cleanup',
-        colorCleanupHint: 'Merge close colors and reduce speckles.',
-        applyColorCleanup: 'Merge close colors',
-        colorLimit: 'Color limit',
-        colorLimitHint: 'Limit colors in the active layer.',
-        applyColorLimit: 'Apply color limit',
-        layerColorsCleaned: (count: number) => (count > 0 ? `${count} beads cleaned up.` : 'No close colors need cleanup in the active layer.'),
-        layerColorsLimited: (count: number, limit: number) => (count > 0 ? `Active layer limited to ${limit} colors.` : `Active layer already has ${limit} colors or fewer.`),
-        effects: 'Effects',
-        invertEffect: 'Invert',
-        grayscaleEffect: 'Grayscale',
-        blackWhiteEffect: 'B/W',
-        effectApplied: (name: string, count: number) => `${name} applied to ${count} beads.`,
-        mardBasic: 'MARD Basic (221 colors)',
-        mardComplete: 'MARD Complete (291 colors)',
-        recentColors: 'Recent',
-        layers: 'Layers',
-        addLayer: 'New layer',
-        deleteLayer: 'Delete',
-        duplicateLayer: 'Duplicate layer',
-        renameLayer: 'Rename layer',
-        reorderLayer: 'Drag to reorder layer',
-        activeLayer: 'Active layer',
-        hiddenLayer: 'Hidden',
-        lockedLayer: 'Locked',
-        layerBeadCount: (count: number) => `${count} beads`,
-        usage: 'Usage',
-        totalBeadsLabel: 'Total beads',
-        colorTypes: 'Colors',
-        estimatedPacks: 'Est. packs',
-        beadsPerPack: 'Beads per pack',
-        perPackUnit: 'beads/pack',
-        countedLayerTitle: 'Counted layers',
-        countAllLayers: 'All layers',
-        countCurrentLayer: 'Current layer',
-        packUnit: 'packs',
-        noUsage: 'No usage yet',
-        brandCodes: 'Brand codes',
-        view: 'View',
-        beadShape: 'Bead shape',
-        roundBeads: 'Round',
-        squareBeads: 'Square',
-        layerOverlap: 'Overlap cells',
-        showActiveLayerOnly: 'Current layer only',
-        grid: 'Grid',
-        coordinates: 'Coordinates',
-        countLayer: 'Count this layer in usage',
-        eye: 'Eye',
-        lock: 'Lock',
-        unlock: 'Unlock',
-        lockHint: 'Lock this layer to prevent drawing or erasing on it',
-        unlockHint: 'Unlock this layer to edit it again',
-        lockedCanvasHint: 'Current layer is locked',
-        manyColors: 'Many colors; consider lowering max colors.',
-        countedLayers: (count: number) => `${count} layers counted`,
-        noCountedLayers: 'No layers counted in usage.',
-        cell: 'Cell',
-        hoverBoard: 'Hover the board',
-        empty: 'empty',
-        language: 'Language',
-        fit: 'Fit',
-        close: 'Close',
-        expandPreview: 'Expand 3D preview',
-        workspaceReady: 'Workspace ready.',
-        heightFromRatio: 'Height is calculated from the image ratio.',
-        status: (width: number, height: number, beads: number, colors: number) => `${width} * ${height} - ${beads} beads - ${colors} colors`,
-        panelStatus: (width: number, height: number, colors: number, beads: number, boards: number) => `${width} * ${height} - ${colors} colors - ${beads} beads - ${boards} boards`,
-        isolatedBeads: (count: number) => (count > 0 ? `${count} beads have no neighbors; watch when fusing.` : 'No beads without neighbors.'),
-        showIsolatedBeads: 'Show beads without neighbors',
-        hideIsolatedBeads: 'Hide beads without neighbors',
-        eraserSize: 'Eraser size',
-        removeScope: 'Clear range',
-        removeSameConnected: 'Same area',
-        removeAllSameColor: 'All same',
-        removeConnected: 'Connected',
-        moveScope: 'Selection',
-        moveLayer: 'Layer',
-        movePartial: 'Partial',
-        panToolHint: 'Tip: when using other tools, right-click drags the canvas by default.',
-        mirrorDirection: 'Mirror',
-        mirrorHorizontal: 'Left-right',
-        mirrorVertical: 'Up-down',
-        shapeType: 'Shape',
-        shapeStyle: 'Style',
-        shapeOutline: 'Outline',
-        shapeFilled: 'Filled',
-        shapeLine: 'Line',
-        shapeRectangle: 'Rect',
-        shapeSquare: 'Square',
-        shapeEllipse: 'Oval',
-        shapeCircle: 'Circle',
-        shapeTriangle: 'Triangle',
-        shapeArrow: 'Arrow',
-        arrowStyle: 'Arrow',
-        arrowSingle: 'Single',
-        arrowDouble: 'Double',
-        arrowBlock: 'Block',
-        textContent: 'Text',
-        textDirection: 'Direction',
-        textHorizontal: 'Horizontal',
-        textVertical: 'Vertical',
-        textSize: 'Text height',
-        textSpacing: 'Spacing',
-        textPlaceholder: 'Text / numbers / letters / symbols',
-        clipboardPreview: 'Clipboard',
-        clipboardEmpty: 'Copy a pattern first',
-        clipboardSize: (width: number, height: number, beads: number) => `${width} * ${height} - ${beads} beads`,
-        resetClipboard: 'Reset clipboard preview',
-        copyScope: 'Copy range',
-        copyConnected: 'Connected',
-        copySelection: 'Select beads',
-        copySelectionHint: 'Left-click to select or deselect individual beads.',
-        copiedPattern: (width: number, height: number, beads: number) => `Copied ${width} x ${height}, ${beads} beads.`,
-        copySelectionUpdated: (beads: number) => `${beads} beads selected.`,
-        clipboardReset: 'Clipboard preview reset.',
-        pastedPattern: 'Pattern pasted.',
-        recoloredBeads: (count: number) => `${count} matching beads recolored.`,
-        brushCells: (count: number) => `${formatBrushSize(count)} cells`,
-        tools: {
-            pencil: { title: 'Pencil', hint: 'Paint beads' },
-            eraser: { title: 'Eraser', hint: 'Clear cells' },
-            fill: { title: 'Fill', hint: 'Fill an area' },
-            remove: { title: 'Clear', hint: 'Clear connected area' },
-            recolor: { title: 'Recolor', hint: 'Replace matching beads' },
-            eyedropper: { title: 'Dropper', hint: 'Pick color' },
-            move: { title: 'Move', hint: 'Move active layer artwork' },
-            copy: { title: 'Copy', hint: 'Copy connected pattern' },
-            paste: { title: 'Paste', hint: 'Paste copied pattern' },
-            mirror: { title: 'Mirror', hint: 'Flip active layer artwork' },
-            shape: { title: 'Shape', hint: 'Draw basic geometry' },
-            text: { title: 'Text', hint: 'Insert dot text' },
-            pan: { title: 'Drag', hint: 'Drag canvas' },
-        },
-    },
-};
 
 const tools: Array<{ id: ToolId; shortcut: string }> = [
   { id: 'pencil', shortcut: 'B' },
@@ -525,8 +94,8 @@ export default function App() {
   const generationRequestRef = useRef(0);
   const adjustmentSessionRef = useRef<{ layerId: string | null; baseCells: Array<string | null> }>({ layerId: null, baseCells: [] });
   const soloVisibilitySnapshotRef = useRef<Record<string, boolean> | null>(null);
-  const [language, setLanguage] = useState<Language>(() => (localStorage.getItem(languageKey) === 'en' ? 'en' : 'zh'));
-  const text = ui[language];
+  const [language, setLanguage] = useLocale();
+  const text = editorMessages[language];
   const [project, setProject] = useState<BeadProject>(() => loadDraft() ?? createProject());
   const [selectedColorId, setSelectedColorId] = useState(defaultColorId);
   const [recentColorIds, setRecentColorIds] = useState(defaultRecentColorIds);
@@ -673,16 +242,16 @@ export default function App() {
   function layerDisplayName(layer: BeadProject['layers'][number], index: number): string {
     if (layer.customName) return layer.name;
     const match = layer.name.match(/^(?:Layer|图层)\s+(\d+)$/);
-    if (match) return language === 'zh' ? `图层 ${match[1]}` : `Layer ${match[1]}`;
+    if (match) return t('editor.layer', { count: match[1] }, language);
     if (layer.id === 'base' || layer.name === 'Pattern' || layer.name === 'Base bead layer' || layer.name === '基础珠子层') {
       return systemLayerName(index);
     }
-    if (!layer.name.trim()) return language === 'zh' ? `图层 ${index + 1}` : `Layer ${index + 1}`;
+    if (!layer.name.trim()) return t('editor.layer', { count: index + 1 }, language);
     return layer.name;
   }
 
   function systemLayerName(index: number): string {
-    return language === 'zh' ? `图层 ${index + 1}` : `Layer ${index + 1}`;
+    return t('editor.layer', { count: index + 1 }, language);
   }
 
   function startEditingLayer(layer: BeadProject['layers'][number], index: number) {
@@ -716,8 +285,6 @@ export default function App() {
 
   useEffect(() => {
     document.documentElement.lang = language === 'en' ? 'en' : 'zh-CN';
-    localStorage.setItem(languageKey, language);
-    document.documentElement.lang = language;
   }, [language]);
 
   useEffect(() => {
@@ -757,11 +324,11 @@ export default function App() {
 
   useEffect(() => {
     setNotice((current: string) => {
-      if (current === ui.zh.workspaceReady || current === ui.en.workspaceReady) return text.workspaceReady;
+      if (current === editorMessages.zh.workspaceReady || current === editorMessages.en.workspaceReady) return text.workspaceReady;
       const zhGenerated = current.match(/^(\d+) 色 - (\d+) 颗 - 可编辑图案已生成。$/);
-      if (zhGenerated) return `${zhGenerated[1]} colors - ${zhGenerated[2]} beads - editable pattern ready.`;
+      if (zhGenerated) return t('editor.generated', { colors: zhGenerated[1], beads: zhGenerated[2] }, language);
       const enGenerated = current.match(/^(\d+) colors - (\d+) beads - editable pattern ready\.$/);
-      if (enGenerated) return `${enGenerated[1]} 色 - ${enGenerated[2]} 颗 - 可编辑图案已生成。`;
+      if (enGenerated) return t('editor.generated', { colors: enGenerated[1], beads: enGenerated[2] }, language);
       return current;
     });
   }, [language, text.workspaceReady]);
@@ -838,7 +405,7 @@ export default function App() {
       const color = completePalette.find((item) => item.primaryCode === code);
       if (color) {
         selectColor(color.id, { updateRecent: false });
-        setNotice(language === 'zh' ? `已选择色号 ${code}。` : `Selected color ${code}.`);
+        setNotice(t('editor.selectedColor', { code }, language));
       }
     }
 
@@ -875,7 +442,7 @@ export default function App() {
             selectColor(color.id);
             clearColorInput();
           } else {
-            setNotice(language === 'zh' ? `未找到色号 ${code}，请继续输入或按 Esc 取消。` : `Color ${code} not found. Continue typing or press Esc.`);
+            setNotice(t('editor.unknownColor', { code }, language));
           }
         } else if (event.key === 'Backspace') {
           event.preventDefault();
@@ -1066,7 +633,7 @@ export default function App() {
     });
     setReferenceVisible(false);
     resetReferenceTransform();
-    setNotice(language === 'zh' ? `已创建 ${width} * ${height} 空白画布。` : `Blank ${width} x ${height} canvas created.`);
+    setNotice(t('editor.blankCreated', { width, height }, language));
   }
 
   function clearCanvas() {
@@ -1074,7 +641,7 @@ export default function App() {
     if (activeLayer.cells.every((cell) => cell === null)) return;
     commitHistory();
     updateProject(withCells(project, Array.from({ length: project.width * project.height }, () => null)));
-    setNotice(language === 'zh' ? '画布已清空。' : 'Canvas cleared.');
+    setNotice(t('editor.canvasCleared', {}, language));
   }
 
   function resizeCanvas() {
@@ -1094,7 +661,7 @@ export default function App() {
       layers: nextLayers,
       cells: composeVisibleCells(nextLayers, width, height),
     });
-    setNotice(language === 'zh' ? `画布已调整为 ${width} * ${height}。` : `Canvas resized to ${width} x ${height}.`);
+    setNotice(t('editor.resized', { width, height }, language));
   }
 
   function applyPreset(value: string) {
@@ -1106,7 +673,7 @@ export default function App() {
 
   function handleImageFile(file: File) {
     if (!file.type.match(/^image\/(png|jpeg|jpg|webp)$/)) {
-      setNotice(language === 'zh' ? '请使用 PNG、JPG、JPEG 或 WebP 图片。' : 'Use a PNG, JPG, JPEG, or WebP image.');
+      setNotice(t('editor.imageFormats', {}, language));
       return;
     }
     setPendingFile(file);
@@ -1121,12 +688,12 @@ export default function App() {
     });
     resetReferenceTransform();
     autoGenerateShouldCommitRef.current = true;
-    setNotice(language === 'zh' ? `正在生成 ${file.name}...` : `Generating ${file.name}...`);
+    setNotice(t('editor.generating', { name: file.name }, language));
   }
 
   function handleReferenceImageFile(file: File) {
     if (!file.type.match(/^image\/(png|jpeg|jpg|webp)$/)) {
-      setNotice(language === 'zh' ? '请使用 PNG、JPG、JPEG 或 WebP 图片。' : 'Use a PNG, JPG, JPEG, or WebP image.');
+      setNotice(t('editor.imageFormats', {}, language));
       return;
     }
     setReferenceFile(file);
@@ -1136,7 +703,7 @@ export default function App() {
     });
     resetReferenceTransform();
     setReferenceVisible(true);
-    setNotice(language === 'zh' ? `${file.name} 已设为参考图。` : `${file.name} set as reference image.`);
+    setNotice(t('editor.referenceSet', { name: file.name }, language));
   }
 
   async function generateFromImage(options: { recordHistory?: boolean; automatic?: boolean } = {}) {
@@ -1151,7 +718,7 @@ export default function App() {
     const sourceProject = project;
     const sourceLayers = layers;
     setIsGenerating(true);
-    setNotice(language === 'zh' ? '正在本地更新拼豆图案...' : 'Updating bead pattern locally...');
+    setNotice(t('editor.updating', {}, language));
     try {
       track('generate');
       const result = await imageFileToBeads(pendingFile, {
@@ -1190,13 +757,11 @@ export default function App() {
       };
       updateProject(nextProject);
       setNotice(
-        language === 'zh'
-          ? `${result.colorsUsed} 色 - ${result.totalBeads} 颗 - 可编辑图案已生成。`
-          : `${result.colorsUsed} colors - ${result.totalBeads} beads - editable pattern ready.`,
+        t('editor.generated', { colors: result.colorsUsed, beads: result.totalBeads }, language),
       );
     } catch (error) {
       if (requestId !== generationRequestRef.current) return;
-      setNotice(error instanceof Error ? error.message : 'Could not generate this image.');
+      setNotice(error instanceof Error ? error.message : t('editor.generationFailed', {}, language));
     } finally {
       if (requestId === generationRequestRef.current) setIsGenerating(false);
     }
@@ -1268,13 +833,13 @@ export default function App() {
   }
 
   function uniqueDuplicateLayerName(baseName: string): string {
-    const suffix = language === 'zh' ? '复制' : 'copy ';
+    const suffix = t('editor.copySuffix', {}, language);
     const existingNames = new Set(layers.map((layer, index) => layerDisplayName(layer, index)));
     for (let index = 1; index < 1000; index += 1) {
-      const candidate = language === 'zh' ? `${baseName}-${suffix}${index}` : `${baseName}-${suffix}${index}`;
+      const candidate = `${baseName}-${suffix}${index}`;
       if (!existingNames.has(candidate)) return candidate;
     }
-    return language === 'zh' ? `${baseName}-${suffix}${Date.now()}` : `${baseName}-${suffix}${Date.now()}`;
+    return `${baseName}-${suffix}${Date.now()}`;
   }
 
   function updateLayer(layerId: string, changes: Partial<BeadProject['layers'][number]>) {
@@ -1448,14 +1013,14 @@ export default function App() {
   const defaultPrintNickname = useMemo(() => {
     const date = new Date();
     const stamp = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}${String(date.getHours()).padStart(2, '0')}${String(date.getMinutes()).padStart(2, '0')}`;
-    return language === 'zh' ? `拼豆图纸_${stamp}` : `Perler_Beads_${stamp}`;
+    return t('editor.exportName', { stamp }, language);
   }, [language]);
 
   function exportPrintPattern() {
     const exportOptions = {
       ...printExportOptions,
       projectName: printExportOptions.projectName?.trim() || defaultPrintNickname,
-      layerLabelPrefix: language === 'en' ? 'Layer' : '图层',
+      layerLabelPrefix: t('editor.layerPrefix', {}, language),
     };
     if (printExportOptions.format === 'pdf') {
       track('export_pdf');
@@ -1564,6 +1129,41 @@ export default function App() {
             <button className="canvas-apply-button" onClick={resizeCanvas}>{text.apply}</button>
           </div>
 
+
+        </div>
+
+        <div className="topbar-right">
+          <a className="topbar-home" href={localePath('/', language)}>{t('common.home', {}, language)}</a>
+          <Account />
+          <a
+            className="github-link"
+            href="https://github.com/Jett-Wu/Perler_Beads_Generator"
+            target="_blank"
+            rel="noreferrer"
+            aria-label="GitHub"
+            title="GitHub"
+          >
+            <GitHubIcon />
+            <span>GitHub</span>
+          </a>
+          <div className="language-toggle" aria-label={text.language}>
+            <button className={language === 'zh' ? 'active' : ''} onClick={() => setLanguage('zh')}>中</button>
+            <button className={language === 'en' ? 'active' : ''} onClick={() => setLanguage('en')}>EN</button>
+          </div>
+        </div>
+      </header>
+
+      <div className="project-toolbar" role="toolbar" aria-label={t('editor.editActions', {}, language)}>
+            <div className="project-actions">
+              <button className="project-action-button primary-action" onClick={() => startBlank(52, 52)}><PlusIcon /><span>{text.new}</span></button>
+              <button className="project-action-button" onClick={clearCanvas}><TrashIcon /><span>{text.clear}</span></button>
+              <span className="project-action-divider" aria-hidden="true" />
+              <button className="project-action-button history-action" onClick={undo} disabled={past.length === 0} title={`${text.undo} (Ctrl+Z / ⌘Z)`} aria-keyshortcuts="Control+Z Meta+Z"><UndoIcon /><span>{text.undo}</span></button>
+              <button className="project-action-button history-action" onClick={redo} disabled={future.length === 0} title={`${text.redo} (Ctrl+Shift+Z / ⌘⇧Z / Ctrl+Y)`} aria-keyshortcuts="Control+Shift+Z Meta+Shift+Z Control+Y"><RedoIcon /><span>{text.redo}</span></button>
+              <span className="project-action-divider" aria-hidden="true" />
+              <button className="project-action-button" onClick={() => { window.location.assign(localePath('/marketplace', language)); }}>{t('editor.marketplace', {}, language)}</button>
+              <button className="project-action-button" onClick={() => { setMarketSubmit(true); setMarketOpen(true); window.location.hash = 'marketplace'; }}>{t('editor.submitPattern', {}, language)}</button>
+            </div>
           <div className="topbar-command-zone">
             <div className="topbar-actions export-actions">
               <div className="print-export-menu">
@@ -1655,40 +1255,6 @@ export default function App() {
               <button className="export-action-button" title={text.importRecordTitle} onClick={() => jsonInputRef.current?.click()}>{text.importRecordFull}</button>
             </div>
           </div>
-        </div>
-
-        <div className="topbar-right">
-          <a href="/" style={{ whiteSpace: 'nowrap', color: 'inherit', fontSize: 12 }}>首页</a>
-          <Account />
-          <a
-            className="github-link"
-            href="https://github.com/Jett-Wu/Perler_Beads_Generator"
-            target="_blank"
-            rel="noreferrer"
-            aria-label="GitHub"
-            title="GitHub"
-          >
-            <GitHubIcon />
-            <span>GitHub</span>
-          </a>
-          <div className="language-toggle" aria-label={text.language}>
-            <button className={language === 'zh' ? 'active' : ''} onClick={() => setLanguage('zh')}>中</button>
-            <button className={language === 'en' ? 'active' : ''} onClick={() => setLanguage('en')}>EN</button>
-          </div>
-        </div>
-      </header>
-
-      <div className="project-toolbar" role="toolbar" aria-label={language === 'zh' ? '编辑操作' : 'Edit actions'}>
-            <div className="project-actions">
-              <button className="project-action-button primary-action" onClick={() => startBlank(52, 52)}><PlusIcon /><span>{text.new}</span></button>
-              <button className="project-action-button" onClick={clearCanvas}><TrashIcon /><span>{text.clear}</span></button>
-              <span className="project-action-divider" aria-hidden="true" />
-              <button className="project-action-button history-action" onClick={undo} disabled={past.length === 0} title={`${text.undo} (Ctrl+Z / ⌘Z)`} aria-keyshortcuts="Control+Z Meta+Z"><UndoIcon /><span>{text.undo}</span></button>
-              <button className="project-action-button history-action" onClick={redo} disabled={future.length === 0} title={`${text.redo} (Ctrl+Shift+Z / ⌘⇧Z / Ctrl+Y)`} aria-keyshortcuts="Control+Shift+Z Meta+Shift+Z Control+Y"><RedoIcon /><span>{text.redo}</span></button>
-              <span className="project-action-divider" aria-hidden="true" />
-              <button className="project-action-button" onClick={() => { window.location.assign('/marketplace'); }}>{language === 'zh' ? '图纸集市' : 'Marketplace'}</button>
-              <button className="project-action-button" onClick={() => { setMarketSubmit(true); setMarketOpen(true); window.location.hash = 'marketplace'; }}>{language === 'zh' ? '提交图纸' : 'Submit pattern'}</button>
-            </div>
       </div>
 
       <aside className="left-panel">
@@ -1698,7 +1264,7 @@ export default function App() {
               <strong>{text.preview3d}</strong>
               <span>{text.liveBoard}</span>
             </div>
-            <small>{totalBeads} {language === 'zh' ? '颗' : 'beads'}</small>
+            <small>{totalBeads} {t('editor.beadUnit', {}, language)}</small>
           </div>
           <ThreePreview
             project={displayProject}
@@ -2186,7 +1752,7 @@ export default function App() {
                   value={textToolSize}
                   onChange={(event) => setTextToolSize(Math.min(72, Math.max(5, Number(event.target.value) || 5)))}
                 />
-                <span>{language === 'zh' ? '格' : 'cells'}</span>
+                <span>{t('editor.cellUnit', {}, language)}</span>
               </label>
             </div>
             <input
@@ -2209,7 +1775,7 @@ export default function App() {
                   value={textToolSpacing}
                   onChange={(event) => setTextToolSpacing(Math.min(24, Math.max(0, Number(event.target.value) || 0)))}
                 />
-                <span>{language === 'zh' ? '格' : 'cells'}</span>
+                <span>{t('editor.cellUnit', {}, language)}</span>
               </label>
             </div>
             <input
@@ -2313,7 +1879,7 @@ export default function App() {
           setShowTextOptions(false);
           setShowClipboardOptions(false);
           setShowPanOptions(false);
-          setNotice(language === 'zh' ? '已从画布拾取颜色。' : 'Color picked from canvas.');
+          setNotice(t('editor.pickedColor', {}, language));
         }}
         onHover={setHoverCell}
         fitLabel={text.fit}
@@ -2370,8 +1936,8 @@ export default function App() {
 
         <details className="panel-section canvas-colors-section" open>
           <summary className="canvas-colors-toggle">
-            <h2>{language === 'zh' ? '画布已用色号' : 'Colors used on canvas'}</h2>
-            <span>{usage.length} {language === 'zh' ? '色' : 'colors'}</span>
+            <h2>{t('editor.canvasColors', {}, language)}</h2>
+            <span>{usage.length} {t('editor.colorUnit', {}, language)}</span>
           </summary>
           <div className="usage-list canvas-colors-list">
             {usage.map((row) => (
@@ -2398,8 +1964,8 @@ export default function App() {
 
         <div className="color-code-shortcut" role="status">
           {colorCodeMode
-            ? (language === 'zh' ? `输入色号：${colorCodeInput || '…'} · 即时选色 / Enter 完成 / Esc 取消` : `Color code: ${colorCodeInput || '…'} · Live selection / Enter to finish / Esc to cancel`)
-            : (language === 'zh' ? '快捷选色：按 / 后输入 A3、A19 等色号' : 'Quick color: press / then type A3 or A19')}
+            ? (t('editor.inputCode', { code: colorCodeInput || '…' }, language))
+            : (t('editor.quickColor', {}, language))}
         </div>
 
         {rightTab === 'palette' && (

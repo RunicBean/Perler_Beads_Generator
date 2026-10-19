@@ -6,10 +6,11 @@
   "type": "module",
   "scripts": {
     "dev": "npm run build && node scripts/dev-server.cjs",
-    "build": "tsc && node scripts/clean-dist.cjs && tsc -p tsconfig.build.json && node scripts/post-build.cjs && node scripts/write-html.cjs",
+    "build": "node scripts/check-i18n.cjs && tsc && node scripts/clean-dist.cjs && tsc -p tsconfig.build.json && node scripts/post-build.cjs && node scripts/write-html.cjs",
     "preview": "node scripts/dev-server.cjs",
     "start": "node scripts/dev-server.cjs",
-    "test": "node --test server/*.test.cjs"
+    "test": "node --test server/*.test.cjs",
+    "check:i18n": "node scripts/check-i18n.cjs"
   },
   "dependencies": {
     "@types/three": "^0.184.1",

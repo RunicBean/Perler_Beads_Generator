@@ -1,3 +1,4 @@
+const { localizeError } = require('./localize-errors.cjs');
 const { publicListing } = require('./preview.cjs');
 const { createAccounts } = require('./accounts.cjs');
 const fs = require('node:fs');
@@ -43,7 +44,7 @@ function validate(input) {
   // The editor fills its display and board defaults when loading this canonical project.
   return { title, author: text(input.author, 30) || '匿名创作者', description: text(input.description, 1000), category, project };
 }
-function json(response, status, data) {
+function rawJson(response, status, data) {
   response.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
   response.end(JSON.stringify(data));
 }
@@ -63,6 +64,7 @@ function createMarketplaceHandler({ store = createSupabaseStore() } = {}) {
   const accounts = createAccounts(store);
   return async (request, response, url) => {
     if (!url.pathname.startsWith('/api/')) return false;
+    const json = (res, status, data) => rawJson(res, status, localizeError(data, request.headers['accept-language']));
     response.setHeader?.('X-Robots-Tag', 'noindex');
     try {
       if (await accounts.route(request, response, url, body, json)) return true;

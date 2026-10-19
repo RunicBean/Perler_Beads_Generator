@@ -364,3 +364,9 @@ GitHub Pages 只提供静态托管，不能运行这个后端。共享版本可�
 本地 Node 与 Vercel 共用公开页面处理器。此完整版本需要后端，GitHub Pages 静态部署不能支持动态集市、动态站点地图及 `/editor` 等服务端路由。旧 `/#marketplace/:id` 分享通过浏览器跳转到新详情页。Vercel Preview 构建和动态响应使用 noindex；认证 API 始终保留鉴权，robots 不代替权限控制。公开页不加载编辑器或 Three.js；空白编辑器不加载 3D 模块，出现图案后再按需加载。
 
 新增页面不会公开配色明细、图层或完整项目 JSON。新站点不需要额外数据库迁移。上线后手动在 Google Search Console / Bing Webmaster Tools 验证域名并提交 `https://perler-beads-generator.ai-toolsets.com/sitemap.xml`。线上性能、实际收录和 AI 引用需部署后持续观察，不能由本地测试保证。
+
+### 中英文与 i18n
+
+全站支持中文默认路径及 `/en/...` 英文路径，包含首页、教程、图纸集市、作品详情、登录与统计。编辑器在 `/editor` / `/en/editor` 内即时切换语言并保留画布，沿用原有浏览器语言偏好。作品原文和数据库分类值保持不变，仅翻译界面显示。
+
+公共页面包含对应语言的标题、描述、canonical 和双向 hreflang；站点地图列出两种语言。统一文案位于 `shared/i18n/`，编辑器富文本与函数文案位于 `src/editorMessages.tsx`。API 使用 Accept-Language 返回本地化错误及稳定的错误 code。新增或修改文案后运行 `npm run check:i18n`；构建会检查双语键名与插值参数是否一致。详细约定见 [docs/i18n.md](docs/i18n.md)。无需新增依赖或数据库迁移。
