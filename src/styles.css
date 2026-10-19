@@ -4034,7 +4034,7 @@ button:focus-visible {
 @media(max-width: 800px) { .market-header { padding: 16px; flex-wrap: wrap; }.market-header nav { gap: 6px; }.market-header button { padding: 8px 10px; }.market-hero { grid-template-columns: 1fr; }.market-hero > div { padding: 26px; }.market-hero-art { display: none; }.market-toolbar { flex-wrap: wrap; }.market-toolbar h2 { width: 100%; }.market-toolbar input { flex: 1; min-width: 150px; }.market-grid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 14px; }.market-card-image { height: 190px; }.market-detail,.market-submit { grid-template-columns: 1fr; gap: 24px; }.market-art { min-height: 260px; }.market-content { padding-inline: 16px; } }
 @media(max-width: 480px) { .market-grid { grid-template-columns: 1fr; }.market-card-image { height: 250px; }.market-stats { gap: 22px; } }
 
-.account-controls { display:flex; align-items:center; gap:8px; font-size:12px; }
+.account-controls { display:flex; align-items:center; gap:8px; font-size:12px; flex-shrink:0; white-space:nowrap; }
 .account-backdrop { position:fixed; inset:0; background:#17243188; z-index:10000; display:grid; place-items:center; padding:24px; }
 .account-dialog { position:relative; background:#fff; color:#263342; border-radius:18px; padding:30px; width:min(620px,95vw); max-height:85vh; overflow:auto; box-shadow:0 20px 70px #0003; }
 .account-close { position:absolute; right:14px; top:10px; font-size:24px; }

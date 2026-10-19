@@ -1526,7 +1526,6 @@ export default function App() {
       />
 
       <header className="topbar">
-        <Account />
         <div className="brand-lockup" aria-label="Perler Beads Generator">
           <span className="logo-mark" aria-hidden="true">
             <span />
@@ -1653,6 +1652,7 @@ export default function App() {
         </div>
 
         <div className="topbar-right">
+          <Account />
           <a
             className="github-link"
             href="https://github.com/Jett-Wu/Perler_Beads_Generator"
