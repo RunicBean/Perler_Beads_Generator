@@ -43,3 +43,13 @@ test('publishable key is rejected before making a database request', async () =>
   await assert.rejects(store.health(), error => error.status === 503 && error.message.includes('publishable'));
   assert.equal(called, false);
 });
+
+test('session creation requests JSON representation and database limits map to 429', async () => {
+  const store = createSupabaseStore({ url: 'https://example.supabase.co', key: 'sb_secret_test', fetchImpl: async (_, options) => {
+    assert.equal(options.headers.Prefer, 'return=representation');
+    return new Response('[]');
+  } });
+  await store.session('a'.repeat(64), 'user');
+  const limited = createSupabaseStore({ url: 'https://example.supabase.co', key: 'sb_secret_test', fetchImpl: async () => new Response(JSON.stringify({ code:'P0001', message:'Too many attempts' }), { status:400 }) });
+  await assert.rejects(limited.event({}), e => e.status === 429);
+});

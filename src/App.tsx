@@ -1,3 +1,4 @@
+import Account, { track } from './Account';
 import Marketplace from './Marketplace';
 import WorkspaceCanvas from './WorkspaceCanvas';
 import ThreePreview from './ThreePreview';
@@ -1146,6 +1147,7 @@ export default function App() {
     setIsGenerating(true);
     setNotice(language === 'zh' ? '正在本地更新拼豆图案...' : 'Updating bead pattern locally...');
     try {
+      track('generate');
       const result = await imageFileToBeads(pendingFile, {
         width: convertWidth,
         maxColors,
@@ -1217,11 +1219,13 @@ export default function App() {
   }
 
   function exportUsageList() {
+    track('export_usage');
     downloadUsageWorkbook(project);
     setNotice(text.usageExported);
   }
 
   function exportEditRecord() {
+    track('export_json');
     downloadProjectJson(project);
     setNotice(text.recordExported);
   }
@@ -1448,9 +1452,11 @@ export default function App() {
       layerLabelPrefix: language === 'en' ? 'Layer' : '图层',
     };
     if (printExportOptions.format === 'pdf') {
-      downloadPrintPdf(project, exportOptions);
+      track('export_pdf');
+    downloadPrintPdf(project, exportOptions);
     } else {
-      downloadPrintPng(project, exportOptions);
+      track('export_png');
+    downloadPrintPng(project, exportOptions);
     }
     setShowPrintExportPanel(false);
   }
@@ -1520,6 +1526,7 @@ export default function App() {
       />
 
       <header className="topbar">
+        <Account />
         <div className="brand-lockup" aria-label="Perler Beads Generator">
           <span className="logo-mark" aria-hidden="true">
             <span />

@@ -335,4 +335,16 @@ Secret/service_role key 仅由 Node API 使用，不要配置成任何前端公�
 
 图纸通过 `/#marketplace/<id>` 分享，同一服务器的其他浏览器可以访问。收藏仍保存在各自浏览器。旧版 localStorage 图纸保留在列表中，不会自动公开，需手动提交后才能共享。连接失败时显示本地图纸和重试入口，禁止公开提交。
 
-GitHub Pages 只提供静态托管，不能运行这个后端。共享版本可部署至 Vercel，或自行托管 Node 服务。当前 API 支持匿名提交，不提供账号、修改、删除或审核接口；后续可增加提交限流、登录、作品管理与审核。
+GitHub Pages 只提供静态托管，不能运行这个后端。共享版本可部署至 Vercel，或自行托管 Node 服务。当前 API 提交要求账号登录；暂不提供修改、删除或审核接口。
+
+### 账号登录与访问统计
+
+执行 `supabase/migrations/202610190001_accounts_analytics.sql` 后部署新版服务。顶部「登录 / 注册」支持账号密码注册、登录和退出；浏览及本地编辑可匿名使用，公开提交图纸要求登录，作者自动使用登录账号。账号不区分大小写，密码采用随机盐 scrypt 哈希；随机会话令牌通过 HttpOnly、SameSite Cookie 保存，有效期 7 天，数据库只保存令牌摘要。HTTPS 生产环境请设置 `NODE_ENV=production`（Vercel 自动启用 Secure Cookie）。
+
+先注册并确认自己的账号，再把该账号写入服务端 `ADMIN_USERNAMES`，多个账号用逗号分隔，重新启动或部署后登录即可看到「访问统计」。不要预先授权尚未注册的账号名称。
+
+统计支持最近 7 / 30 / 90 天，按北京时间自然日计算：访问量 PV、浏览器去重 UV、标签页会话数、新增账号、每日 PV/UV、来源域名，以及图片生成、集市浏览和各类导出次数。每次页面加载计一次 PV；刷新沿用标签页会话，关闭标签页后重新打开产生新会话。匿名浏览器标识保存在 localStorage，清除存储或使用不同浏览器会重新计数。来源仅记录域名，不保存完整 URL、原始 IP、图片或画布内容；客户端拦截或伪造上报可能影响统计精度。
+
+账号尝试按账号在数据库内限制为每 15 分钟 10 次，统计事件按访客每分钟限制 60 次。遇到限流请稍后重试。生产运营仍应配置平台入口限流以控制恶意流量。会话过期后需重新登录；可定期删除过期 `app_sessions` 与不再需要的 `app_events`。当前不含密码找回和账号管理功能。
+
+新增 API：`POST /api/auth/register`、`POST /api/auth/login`（username、password），`GET /api/auth/me`，`POST /api/auth/logout`，`POST /api/analytics/events`，`GET /api/analytics?days=7`（仅管理员）。所有新表开启 RLS，仅服务端 service_role 可访问。

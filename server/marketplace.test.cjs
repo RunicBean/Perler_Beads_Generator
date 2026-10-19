@@ -7,17 +7,19 @@ const { createMarketplaceHandler } = require('./marketplace.cjs');
 async function call(handler, method, route, data, headers = {}) {
   const request = Readable.from(data === undefined ? [] : [Buffer.from(typeof data === 'string' ? data : JSON.stringify(data))]);
   request.method = method;
-  request.headers = { host: 'localhost', 'content-type': 'application/json', ...headers };
+  request.headers = { host: 'localhost', 'content-type': 'application/json', cookie: `perler_session=${'a'.repeat(64)}`, ...headers };
   let status, result;
   const response = { setHeader() {}, writeHead(code) { status = code; }, end(body) { result = JSON.parse(body); } };
   await handler(request, response, new URL(route, 'http://localhost'));
   return { status, data: result };
 }
+const authToken = 'a'.repeat(64);
 const project = { width: 2, height: 2, cells: ['mard-a1', null, null, null], layers: [{ id: 'base', name: 'Pattern', visible: true, cells: ['mard-a1', null, null, null] }] };
 const input = { title: '测试图纸', category: '其他', project };
 test('publish, query and detail use the shared store and preserve canonical project', async () => {
   const rows = new Map();
   const store = {
+    async session() { return { id: 'user', username: '测试用户' }; },
     async health() {},
     async create(item) { rows.set(item.id, item); return item; },
     async get(id) { return rows.get(id) || null; },
@@ -27,7 +29,7 @@ test('publish, query and detail use the shared store and preserve canonical proj
     let handler = createMarketplaceHandler({ store });
     const created = await call(handler, 'POST', '/api/patterns', input);
     assert.equal(created.status, 201);
-    assert.equal(created.data.author, '匿名创作者');
+    assert.equal(created.data.author, '测试用户');
     assert.deepEqual(created.data.project.cells, project.cells);
     handler = createMarketplaceHandler({ store });
     const list = await call(handler, 'GET', '/api/patterns?q=测试&limit=1');
@@ -43,6 +45,7 @@ test('publish, query and detail use the shared store and preserve canonical proj
 test('invalid input and cross-origin requests cannot write records', async () => {
   const rows = new Map();
   const store = {
+    async session() { return { id: 'user', username: '测试用户' }; },
     async health() {},
     async create(item) { rows.set(item.id, item); return item; },
     async get(id) { return rows.get(id) || null; },
@@ -68,8 +71,8 @@ test('missing database configuration and database failures return 503', async ()
 });
 test('Vercel parsed request bodies use the same validation', async () => {
   let saved;
-  const handler = createMarketplaceHandler({ store: { async create(item) { saved = item; return item; } } });
-  const request = { method: 'POST', headers: { host: 'localhost', 'content-type': 'application/json' }, body: input };
+  const handler = createMarketplaceHandler({ store: { async session() { return { id: 'user', username: '测试用户' }; }, async create(item) { saved = item; return item; } } });
+  const request = { method: 'POST', headers: { host: 'localhost', 'content-type': 'application/json', cookie: `perler_session=${authToken}` }, body: input };
   const response = { writeHead(status) { this.status = status; }, end() {} };
   await handler(request, response, new URL('http://localhost/api/patterns'));
   assert.equal(response.status, 201);

@@ -1,3 +1,4 @@
+const { createAccounts } = require('./accounts.cjs');
 const fs = require('node:fs');
 const path = require('node:path');
 const { createSupabaseStore } = require('./supabase-store.cjs');
@@ -58,9 +59,11 @@ async function body(request) {
   try { return JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { fail('JSON 格式无效。'); }
 }
 function createMarketplaceHandler({ store = createSupabaseStore() } = {}) {
+  const accounts = createAccounts(store);
   return async (request, response, url) => {
     if (!url.pathname.startsWith('/api/')) return false;
     try {
+      if (await accounts.route(request, response, url, body, json)) return true;
       if (url.pathname === '/api/health' && request.method === 'GET') { await store.health(); json(response, 200, { status: 'ok', database: 'supabase' }); return true; }
       const collection = url.pathname === '/api/patterns';
       const match = url.pathname.match(/^\/api\/patterns\/([a-f0-9-]{36})$/);
@@ -82,7 +85,9 @@ function createMarketplaceHandler({ store = createSupabaseStore() } = {}) {
           try { origin = new URL(request.headers.origin); } catch { fail('来源无效。', 403); }
           if (!['http:', 'https:'].includes(origin.protocol) || origin.host !== request.headers.host) fail('不允许跨站提交。', 403);
         }
-        const item = { ...validate(await body(request)), id: randomUUID(), createdAt: new Date().toISOString() };
+        const user = await accounts.user(request);
+        if (!user) fail('请先登录后再提交图纸。', 401);
+        const item = { ...validate({ ...await body(request), author: user.username }), id: randomUUID(), createdAt: new Date().toISOString() };
         json(response, 201, await store.create(item));
       } else { response.setHeader('Allow', collection ? 'GET, POST' : 'GET'); json(response, 405, { error: '请求方法不支持。' }); }
     } catch (error) { if (!error.status) console.error(error); if (!response.destroyed) json(response, error.status || 500, { error: error.status ? error.message : '服务暂时不可用，请稍后重试。' }); }
