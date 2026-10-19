@@ -129,6 +129,14 @@ export default function WorkspaceCanvas({
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const wrapper = wrapperRef.current;
+    if (!wrapper) return;
+    // React's delegated wheel listener is passive; cancel scrolling natively.
+    const preventPageScroll = (event: WheelEvent) => event.preventDefault();
+    wrapper.addEventListener('wheel', preventPageScroll, { passive: false });
+    return () => wrapper.removeEventListener('wheel', preventPageScroll);
+  }, []);
   const draftCellsRef = useRef<Array<string | null>>(getActiveLayerCells(project));
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -623,7 +631,10 @@ export default function WorkspaceCanvas({
     const rect = event.currentTarget.getBoundingClientRect();
     const point = { x: event.clientX - rect.left, y: event.clientY - rect.top };
     const before = screenToWorld(point.x, point.y);
-    const nextZoom = Math.min(5, Math.max(0.12, zoom * (event.deltaY > 0 ? 0.9 : 1.1)));
+    // Respect small trackpad movements and limit large wheel steps to about 9%.
+    const deltaUnit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? rect.height : 1;
+    const wheelDelta = Math.max(-100, Math.min(100, event.deltaY * deltaUnit));
+    const nextZoom = Math.min(5, Math.max(0.12, zoom * Math.exp(-wheelDelta * 0.0009)));
     setZoom(nextZoom);
     setPan(constrainPan({
       x: point.x - before.x * nextZoom,
