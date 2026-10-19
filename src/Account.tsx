@@ -15,8 +15,9 @@ export function track(name: string) {
     void api('analytics/events', { name, visitorId, sessionId, source: document.referrer }).catch(() => {});
   } catch { /* Statistics must never interrupt editing. */ }
 }
-export default function Account({ recordVisit = true }: { recordVisit?: boolean }) {
+export default function Account({ recordVisit = true, onLoginChange }: { recordVisit?: boolean; onLoginChange?: (loggedIn: boolean) => void }) {
   const [user, setUser] = useState<User | null>(null);
+  useEffect(() => { onLoginChange?.(!!user); }, [user, onLoginChange]);
   const [open, setOpen] = useState(false);
   const [register, setRegister] = useState(false);
   const [username, setUsername] = useState(''); const [password, setPassword] = useState('');

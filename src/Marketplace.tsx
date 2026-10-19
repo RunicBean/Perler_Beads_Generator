@@ -45,6 +45,9 @@ function Pattern({ project }: {project: BeadProject}) {
   return <canvas ref={ref} role="img" aria-label={`${project.name}图纸预览`} />;
 }
 export default function Marketplace({ current, onClose, onEdit, quickSubmit = false }: {current: BeadProject; onClose:()=>void; onEdit:(project:BeadProject)=>void; quickSubmit?:boolean}) {
+  const [loggedIn, setLoggedIn] = useState(false);
+  const [detailProject, setDetailProject] = useState<{ id: string; project: BeadProject } | null>(null);
+  const [usageError, setUsageError] = useState('');
   const [heroProject] = useState(() => samples()[0].project!);
   const [localListings] = useState(readListings);
   const [listings,setListings] = useState<Listing[]>([]);
@@ -124,6 +127,22 @@ export default function Marketplace({ current, onClose, onEdit, quickSubmit = fa
   }
   const decorated = listings.map(item => ({ ...item, favorite: favoriteIds.includes(item.id) }));
   const selected = decorated.find(x => route === `marketplace/${x.id}`);
+  useEffect(() => {
+    setDetailProject(null); setUsageError('');
+    if (!loggedIn || !selected) return;
+    let active = true;
+    if ((selected.demo || !/^[a-f0-9-]{36}$/.test(selected.id)) && selected.project) {
+      setDetailProject({ id: selected.id, project: normalizeProject(selected.project) });
+      return;
+    }
+    void api(`patterns/${selected.id}/project`).then(result => {
+      if (active) setDetailProject({ id: selected.id, project: normalizeProject(result.project) });
+    }).catch(e => { if (active) setUsageError((e as Error).message); });
+    return () => { active = false; };
+  }, [loggedIn, selected?.id, reload]);
+  const usageProject = loggedIn && detailProject?.id === selected?.id ? detailProject?.project : undefined;
+  const colorUsage = new Map<string, number>();
+  usageProject?.cells.forEach(id => { if (id) colorUsage.set(id, (colorUsage.get(id) || 0) + 1); });
   const visible = decorated.filter(x => (filter === '全部' || x.category === filter) && (!favorites || x.favorite) && `${x.title} ${x.author} ${x.description}`.toLowerCase().includes(search.toLowerCase())).sort((a,b) => sort === 'small' ? a.beads-b.beads : b.createdAt.localeCompare(a.createdAt));
   function favorite(item:Listing) {
     const next = favoriteIds.includes(item.id) ? favoriteIds.filter(id => id !== item.id) : [...favoriteIds, item.id];
@@ -150,12 +169,12 @@ export default function Marketplace({ current, onClose, onEdit, quickSubmit = fa
     } catch (e) { setError(e instanceof Error ? e.message : '无法读取图纸。'); }
   }
   return <section className="marketplace" onKeyDown={e => e.stopPropagation()}>
-    <header className="market-header"><a href="#marketplace" className="market-brand">▦ 拼豆灵感集 <small>MARKETPLACE</small></a><nav><Account recordVisit={false} /><button onClick={() => {setSubmitting(false); window.location.hash='marketplace';}}>发现图纸</button><button onClick={onClose}>返回编辑器</button><button className="market-primary" onClick={() => {setSubmitting(true); setError('');}}>＋ 提交图纸</button></nav></header>
+    <header className="market-header"><a href="#marketplace" className="market-brand">▦ 拼豆灵感集 <small>MARKETPLACE</small></a><nav><Account recordVisit={false} onLoginChange={setLoggedIn} /><button onClick={() => {setSubmitting(false); window.location.hash='marketplace';}}>发现图纸</button><button onClick={onClose}>返回编辑器</button><button className="market-primary" onClick={() => {setSubmitting(true); setError('');}}>＋ 提交图纸</button></nav></header>
     <div className="market-content"><p className="market-local">{loading ? '正在连接图纸服务…' : connected ? '社区图纸 · 提交后将公开保存在服务器，收藏保存在当前浏览器' : '离线浏览 · 当前显示本地图纸'}</p>{error && <p role="alert" className="market-error">{error} {!connected && <button onClick={() => setReload(x => x + 1)}>重试连接</button>}</p>}
     {submitting ? <div className="market-submit"><div><p className="market-eyebrow">SHARE YOUR PIXELS</p><h1>把灵感，变成下一份图纸。</h1><p>自动带入当前画布，填写几项信息即可收录。</p><div className="market-art"><Pattern project={source}/></div><p>{source.width} × {source.height} 格 · {stats(source).beads} 颗 · {stats(source).colors} 色</p><label className="market-upload">换一份 JSON 图纸<input type="file" accept=".json,application/json" onChange={e=>{const file=e.target.files?.[0]; if(file) void upload(file); e.target.value='';}}/></label></div>
     <form onSubmit={e=>{e.preventDefault(); void publish();}}>
     <label>图纸名称<input required maxLength={60} value={title} onChange={e=>setTitle(e.target.value)} placeholder="给作品起个名字"/></label><label>作者昵称<input maxLength={30} value={author} onChange={e=>setAuthor(e.target.value)} placeholder="你的昵称（可选）"/></label><label>图纸分类<select value={category} onChange={e=>setCategory(e.target.value)}>{categories.slice(1).map(c=><option key={c}>{c}</option>)}</select></label><label>创作说明<textarea maxLength={1000} rows={5} value={description} onChange={e=>setDescription(e.target.value)} placeholder="介绍灵感、用途，或制作时的小提示…"/></label><p>请仅收录你有权分享的图纸。提交后图纸将公开，服务器会保存独立副本。本地旧作品需主动提交才会上线。</p><div className="market-actions"><button type="button" onClick={()=>setSubmitting(false)}>取消</button><button className="market-primary" type="submit" disabled={publishing || !connected || loading}>{publishing ? '提交中…' : '公开提交图纸'}</button></div></form></div>
-    : selected ? <><a href="#marketplace" className="market-back">← 全部图纸</a><div className="market-detail"><div className="market-art">{preview(selected)}</div><div><p className="market-eyebrow">{selected.category} {selected.demo && ' / 示例图纸'}</p><h1>{selected.title}</h1><p>by {selected.author} · {new Date(selected.createdAt).toLocaleDateString('zh-CN')}</p><div className="market-stats"><span><b>{selected.width} × {selected.height}</b>图纸尺寸</span><span><b>{selected.beads}</b>拼豆颗数</span><span><b>{selected.colors}</b>颜色数量</span></div><p className="market-description">{selected.description || '作者还没有添加创作说明。'}</p><div className="market-actions"><button className="market-primary" onClick={()=>void usePattern(selected, false)}>载入编辑器</button><button onClick={()=>favorite(selected)}>{selected.favorite?'♥ 已收藏':'♡ 收藏'}</button><button onClick={()=>void usePattern(selected, true)}>下载 JSON</button></div><p>载入后可继续修改，原画布可通过撤销恢复。</p><p>登录后可载入编辑器、查看配色用量及下载 JSON。</p></div></div></>
+    : selected ? <><a href="#marketplace" className="market-back">← 全部图纸</a><div className="market-detail"><div className="market-art">{preview(selected)}</div><div><p className="market-eyebrow">{selected.category} {selected.demo && ' / 示例图纸'}</p><h1>{selected.title}</h1><p>by {selected.author} · {new Date(selected.createdAt).toLocaleDateString('zh-CN')}</p><div className="market-stats"><span><b>{selected.width} × {selected.height}</b>图纸尺寸</span><span><b>{selected.beads}</b>拼豆颗数</span><span><b>{selected.colors}</b>颜色数量</span></div><p className="market-description">{selected.description || '作者还没有添加创作说明。'}</p><div className="market-actions"><button className="market-primary" onClick={()=>void usePattern(selected, false)}>载入编辑器</button><button onClick={()=>favorite(selected)}>{selected.favorite?'♥ 已收藏':'♡ 收藏'}</button><button onClick={()=>void usePattern(selected, true)}>下载 JSON</button></div><p>载入后可继续修改，原画布可通过撤销恢复。</p>{!loggedIn ? <p>登录后可载入编辑器、查看配色用量及下载 JSON。</p> : <><h3>配色与用量 · MARD</h3>{usageProject ? <div className="market-colors">{[...colorUsage].sort((a,b) => b[1]-a[1]).map(([id,count]) => <span key={id}><i style={{background:getColor(id)?.hex}}/>{getColor(id)?.primaryCode}<b>{count} 颗</b></span>)}</div> : usageError ? <p role="alert">{usageError} <button onClick={() => setReload(value => value + 1)}>重试</button></p> : <p role="status">正在加载配色与用量…</p>}</>}</div></div></>
     : loading ? <div className="market-empty" role="status">正在加载图纸…</div> : route.startsWith('marketplace/') ? <div className="market-empty"><h2>找不到这份图纸</h2><p>图纸可能尚未公开或已被移除。</p><a href="#marketplace">返回图纸列表</a></div>
     : <><div className="market-hero"><div><p className="market-eyebrow">A LITTLE BEAD, A LOT OF IDEAS</p><h1>下一份心动，<br/>从一颗拼豆开始。</h1><p>发现喜欢的图案，收藏灵感，一键开始创作。</p><button className="market-primary" onClick={()=>setSubmitting(true)}>分享我的图纸 ↗</button></div><div className="market-hero-art"><Pattern project={heroProject}/><span>小小像素，无限可能 ✦</span></div></div>
     <div className="market-toolbar"><h2>发现图纸 <small>{visible.length} 份灵感</small></h2><input type="search" aria-label="搜索图纸" placeholder="搜索图纸、作者、灵感…" value={search} onChange={e=>setSearch(e.target.value)}/><select aria-label="排序" value={sort} onChange={e=>setSort(e.target.value)}><option value="new">最新提交</option><option value="small">颗数从少到多</option></select></div><div className="market-filters">{categories.map(c=><button key={c} className={filter===c?'active':''} onClick={()=>setFilter(c)}>{c}</button>)}<button className={favorites?'active':''} onClick={()=>setFavorites(!favorites)}>♡ 我的收藏</button></div>
