@@ -63,6 +63,7 @@ function createMarketplaceHandler({ store = createSupabaseStore() } = {}) {
   const accounts = createAccounts(store);
   return async (request, response, url) => {
     if (!url.pathname.startsWith('/api/')) return false;
+    response.setHeader?.('X-Robots-Tag', 'noindex');
     try {
       if (await accounts.route(request, response, url, body, json)) return true;
       if (url.pathname === '/api/health' && request.method === 'GET') { await store.health(); json(response, 200, { status: 'ok', database: 'supabase' }); return true; }

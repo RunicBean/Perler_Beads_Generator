@@ -350,3 +350,17 @@ GitHub Pages 只提供静态托管，不能运行这个后端。共享版本可�
 新增 API：`POST /api/auth/register`、`POST /api/auth/login`（username、password），`GET /api/auth/me`，`POST /api/auth/logout`，`POST /api/analytics/events`，`GET /api/analytics?days=7`（仅管理员）。所有新表开启 RLS，仅服务端 service_role 可访问。
 
 集市公开列表与详情仅返回 PNG 预览和基本信息，不包含图纸格子或图层。预览采用连续色块，不显示圆形拼豆、色号或点状背景。载入及 JSON 下载通过 `GET /api/patterns/:id/project` 获取完整图纸，该接口要求有效登录会话；未登录可在集市右上角注册或登录。此调整无需新增数据库迁移。
+
+### 搜索与公开页面
+
+正式站点为 `https://perler-beads-generator.ai-toolsets.com`。配置服务端和构建环境的 `SITE_URL` 后重新构建部署：
+
+- `/`：静态产品首页；`/editor`：原有编辑器（不参与索引，浏览器草稿继续保留）。
+- `/marketplace?page=1`：服务端分页集市；`/patterns/:id`：公开可读 HTML 详情。
+- `/patterns/:id/preview.png`：公开连续色块预览图；完整项目仍走登录接口。
+- `/guides/image-to-perler`、`/guides/mard-colors`、`/about`、`/privacy`：静态说明页面。
+- `/robots.txt`、`/sitemap.xml`：抓取规则和分页站点地图。所有 canonical 与 OG 地址由 `SITE_URL` 生成。
+
+本地 Node 与 Vercel 共用公开页面处理器。此完整版本需要后端，GitHub Pages 静态部署不能支持动态集市、动态站点地图及 `/editor` 等服务端路由。旧 `/#marketplace/:id` 分享通过浏览器跳转到新详情页。Vercel Preview 构建和动态响应使用 noindex；认证 API 始终保留鉴权，robots 不代替权限控制。公开页不加载编辑器或 Three.js；空白编辑器不加载 3D 模块，出现图案后再按需加载。
+
+新增页面不会公开配色明细、图层或完整项目 JSON。新站点不需要额外数据库迁移。上线后手动在 Google Search Console / Bing Webmaster Tools 验证域名并提交 `https://perler-beads-generator.ai-toolsets.com/sitemap.xml`。线上性能、实际收录和 AI 引用需部署后持续观察，不能由本地测试保证。

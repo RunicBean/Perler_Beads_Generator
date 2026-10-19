@@ -3,7 +3,7 @@ const { promisify } = require('node:util');
 const scrypt = promisify(derive);
 const digest = value => createHash('sha256').update(value).digest('hex');
 const fail = (message, status = 400) => { throw Object.assign(new Error(message), { status }); };
-const events = new Set(['page_view', 'marketplace_view', 'generate', 'export_png', 'export_pdf', 'export_usage', 'export_json']);
+const events = new Set(['page_view', 'marketplace_view', 'generate', 'export_png', 'export_pdf', 'export_usage', 'export_json', 'marketplace_load', 'marketplace_download']);
 function createAccounts(store) {
   const admin = user => !!user && (process.env.ADMIN_USERNAMES || '').split(',').map(x => x.trim().toLowerCase()).filter(Boolean).includes(user.username);
   const token = req => (req.headers.cookie || '').split(';').map(x => x.trim()).find(x => x.startsWith('perler_session='))?.slice(15) || '';

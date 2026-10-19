@@ -25,6 +25,9 @@ class AppErrorBoundary extends React.Component<React.PropsWithChildren, AppError
   }
 }
 
+const legacy = location.hash.match(/^#marketplace(?:\/([a-f0-9-]{36}))?$/);
+if (legacy) location.replace(legacy[1] ? `/patterns/${legacy[1]}` : '/marketplace');
+
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
     <AppErrorBoundary>

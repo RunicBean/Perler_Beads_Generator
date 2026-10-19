@@ -5,11 +5,14 @@ const fs = require('fs');
 const path = require('path');
 const { createMarketplaceHandler } = require('../server/marketplace.cjs');
 const handleApi = createMarketplaceHandler();
+const { createPublicHandler } = require('../server/public-pages.cjs');
+const handlePublic = createPublicHandler();
 
 const generated = path.join(process.cwd(), 'generated');
 const root = path.join(generated, 'dist');
 const port = Number(process.argv[2] || process.env.PORT || 5174);
 const types = {
+  '.svg': 'image/svg+xml',
   '.html': 'text/html;charset=utf-8',
   '.js': 'text/javascript;charset=utf-8',
   '.css': 'text/css;charset=utf-8',
@@ -26,10 +29,11 @@ http
     try { url = new URL(request.url, `http://${request.headers.host || 'localhost'}`); }
     catch { response.writeHead(400); response.end('Bad request'); return; }
     if (await handleApi(request, response, url)) return;
+    if (await handlePublic(request, response, url)) return;
     let requestPath;
     try { requestPath = decodeURIComponent(url.pathname); }
     catch { response.writeHead(400); response.end('Bad request'); return; }
-    if (requestPath === '/') requestPath = '/index.html';
+    if (requestPath === '/editor') requestPath = '/editor.html';
     const filePath = path.normalize(path.join(root, requestPath));
 
     if (!filePath.startsWith(root + path.sep)) {

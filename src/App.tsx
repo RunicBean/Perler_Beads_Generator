@@ -1,7 +1,7 @@
 import Account, { track } from './Account';
 import Marketplace from './Marketplace';
 import WorkspaceCanvas from './WorkspaceCanvas';
-import ThreePreview from './ThreePreview';
+import ThreePreview from './LazyThreePreview';
 import { downloadPrintPdf, downloadPrintPng, downloadProjectJson, downloadUsageWorkbook } from './exporters';
 import type { PrintExportOptions } from './exporters';
 import { imageFileToBeads } from './imageToBeads';
@@ -506,6 +506,11 @@ type AdjustmentSettings = {
 };
 
 export default function App() {
+  useEffect(() => {
+    const raw = sessionStorage.getItem('perler:pending-project');
+    if (!raw) return;
+    try { const next = normalizeProject(JSON.parse(raw)); commitHistory(); setProject(next); setCanvasWidth(next.width); setCanvasHeight(next.height); sessionStorage.removeItem('perler:pending-project'); } catch { sessionStorage.removeItem('perler:pending-project'); }
+  }, []);
   const [marketOpen, setMarketOpen] = useState(() => window.location.hash.startsWith('#marketplace'));
   const [marketSubmit, setMarketSubmit] = useState(false);
   useEffect(() => {
@@ -710,6 +715,7 @@ export default function App() {
   }, [project]);
 
   useEffect(() => {
+    document.documentElement.lang = language === 'en' ? 'en' : 'zh-CN';
     localStorage.setItem(languageKey, language);
     document.documentElement.lang = language;
   }, [language]);
@@ -1652,6 +1658,7 @@ export default function App() {
         </div>
 
         <div className="topbar-right">
+          <a href="/" style={{ whiteSpace: 'nowrap', color: 'inherit', fontSize: 12 }}>首页</a>
           <Account />
           <a
             className="github-link"
@@ -1679,7 +1686,7 @@ export default function App() {
               <button className="project-action-button history-action" onClick={undo} disabled={past.length === 0} title={`${text.undo} (Ctrl+Z / ⌘Z)`} aria-keyshortcuts="Control+Z Meta+Z"><UndoIcon /><span>{text.undo}</span></button>
               <button className="project-action-button history-action" onClick={redo} disabled={future.length === 0} title={`${text.redo} (Ctrl+Shift+Z / ⌘⇧Z / Ctrl+Y)`} aria-keyshortcuts="Control+Shift+Z Meta+Shift+Z Control+Y"><RedoIcon /><span>{text.redo}</span></button>
               <span className="project-action-divider" aria-hidden="true" />
-              <button className="project-action-button" onClick={() => { setMarketSubmit(false); setMarketOpen(true); window.location.hash = 'marketplace'; }}>{language === 'zh' ? '图纸集市' : 'Marketplace'}</button>
+              <button className="project-action-button" onClick={() => { window.location.assign('/marketplace'); }}>{language === 'zh' ? '图纸集市' : 'Marketplace'}</button>
               <button className="project-action-button" onClick={() => { setMarketSubmit(true); setMarketOpen(true); window.location.hash = 'marketplace'; }}>{language === 'zh' ? '提交图纸' : 'Submit pattern'}</button>
             </div>
       </div>

@@ -15,6 +15,53 @@
     {
       "source": "/api/:path*",
       "destination": "/api/index?__marketplace_path=:path*"
+    },
+    {
+      "source": "/editor",
+      "destination": "/editor.html"
+    },
+    {
+      "source": "/marketplace",
+      "destination": "/api/index?__public_path=marketplace"
+    },
+    {
+      "source": "/patterns/:path*",
+      "destination": "/api/index?__public_path=patterns/:path*"
+    },
+    {
+      "source": "/sitemap.xml",
+      "destination": "/api/index?__public_path=sitemap.xml"
+    },
+    {
+      "source": "/robots.txt",
+      "destination": "/api/index?__public_path=robots.txt"
+    },
+    {
+      "source": "/guides/image-to-perler",
+      "destination": "/guides/image-to-perler/index.html"
+    },
+    {
+      "source": "/guides/mard-colors",
+      "destination": "/guides/mard-colors/index.html"
+    },
+    {
+      "source": "/about",
+      "destination": "/about/index.html"
+    },
+    {
+      "source": "/privacy",
+      "destination": "/privacy/index.html"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/api/:path*",
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex"
+        }
+      ]
     }
   ]
 }
