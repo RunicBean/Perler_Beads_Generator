@@ -4126,3 +4126,7 @@ button:focus-visible {
   pointer-events: none;
 }
 .move-selection-hint button { min-height: 26px; padding: 0 7px; white-space: nowrap; pointer-events: auto; }
+
+.market-complexity-filters { display: flex; flex-wrap: wrap; gap: 16px; margin: 18px 0 24px; padding: 18px; border: 1px solid var(--line); border-radius: 12px; }
+.market-complexity-filters label { display: flex; flex-direction: column; gap: 8px; font-size: 13px; flex: 1; min-width: 150px; }
+.market-complexity-filters p { flex-basis: 100%; color: var(--text-muted); margin: 0; font-size: 12px; line-height: 1.6; }

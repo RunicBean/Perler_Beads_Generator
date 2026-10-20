@@ -83,6 +83,14 @@
     {
       "source": "/en/privacy",
       "destination": "/en/privacy/index.html"
+    },
+    {
+      "source": "/admin/patterns",
+      "destination": "/api/index?__public_path=admin/patterns"
+    },
+    {
+      "source": "/en/admin/patterns",
+      "destination": "/api/index?__public_path=en/admin/patterns"
     }
   ],
   "headers": [

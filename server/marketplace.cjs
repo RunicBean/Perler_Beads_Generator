@@ -1,4 +1,5 @@
 const { localizeError } = require('./localize-errors.cjs');
+const { parseFilters } = require('./pattern-filters.cjs');
 const { publicListing } = require('./preview.cjs');
 const { createAccounts } = require('./accounts.cjs');
 const fs = require('node:fs');
@@ -7,18 +8,17 @@ const { createSupabaseStore } = require('./supabase-store.cjs');
 const { randomUUID } = require('node:crypto');
 const paletteSource = fs.readFileSync(path.join(__dirname, '../src/palette.ts'), 'utf8');
 const colorIds = new Set([...paletteSource.matchAll(/^([A-Z]+\d+),#[\dA-Fa-f]{6}$/gm)].map(m => `mard-${m[1].toLowerCase()}`));
-const categories = ['可爱动物', '花草自然', '像素游戏', '生活小物', '其他'];
 function fail(message, status = 400) { throw Object.assign(new Error(message), { status }); }
 function text(value, max, fallback = '') {
   if (value === undefined) return fallback;
   if (typeof value !== 'string' || value.trim().length > max) fail(`文本长度须不超过 ${max} 字。`);
   return value.trim();
 }
-function validate(input) {
+function validate(input, categories) {
   if (!input || typeof input !== 'object') fail('请求数据无效。');
   const title = text(input.title, 60);
   if (!title) fail('请填写图纸名称。');
-  const category = text(input.category, 20, '其他');
+  const category = text(input.category, 20, categories[0] || '');
   if (!categories.includes(category)) fail('图纸分类无效。');
   const p = input.project;
   if (!p || !Number.isInteger(p.width) || !Number.isInteger(p.height) || p.width < 1 || p.height < 1 || p.width > 180 || p.height > 180) fail('图纸尺寸须为 1–180 格。');
@@ -69,6 +69,49 @@ function createMarketplaceHandler({ store = createSupabaseStore() } = {}) {
     try {
       if (await accounts.route(request, response, url, body, json)) return true;
       if (url.pathname === '/api/health' && request.method === 'GET') { await store.health(); json(response, 200, { status: 'ok', database: 'supabase' }); return true; }
+      if (url.pathname === '/api/categories' && request.method === 'GET') { json(response, 200, { items: await store.categories() }); return true; }
+      if (url.pathname.startsWith('/api/admin/')) {
+        if (!accounts.admin(await accounts.user(request))) fail('仅管理员可管理市集作品。', 403);
+        const categoryMatch = url.pathname.match(/^\/api\/admin\/categories\/([a-f0-9-]{36})$/);
+        if (url.pathname === '/api/admin/categories' || categoryMatch) {
+          if (request.method === 'GET' && !categoryMatch) { json(response, 200, { items: await store.categories() }); return true; }
+          if (request.method !== 'POST') { json(response, 405, { error: '请求方法不支持。' }); return true; }
+          accounts.origin(request);
+          const input = await body(request);
+          if (!input || typeof input !== 'object' || Array.isArray(input)) fail('请求数据无效。');
+          const changes = {};
+          if ('name' in input || !categoryMatch) { changes.name = text(input.name, 20); if (!changes.name || changes.name === '全部') fail('分类名称无效。'); }
+          if ('nameEn' in input) changes.nameEn = text(input.nameEn, 60);
+          if ('sortOrder' in input) { if (!Number.isInteger(input.sortOrder) || input.sortOrder < 0 || input.sortOrder > 9999) fail('分类排序须为 0–9999 的整数。'); changes.sortOrder = input.sortOrder; }
+          if ('active' in input) { if (typeof input.active !== 'boolean') fail('分类状态无效。'); changes.active = input.active; }
+          if (!Object.keys(changes).length) fail('请求数据无效。');
+          const category = await store.saveCategory(categoryMatch?.[1], changes);
+          if (!category) fail('分类不存在。', 404);
+          json(response, categoryMatch ? 200 : 201, category);
+          return true;
+        }
+        const adminMatch = url.pathname.match(/^\/api\/admin\/patterns\/([a-f0-9-]{36})$/);
+        if (url.pathname === '/api/admin/patterns' && request.method === 'GET') {
+          const page = Number(url.searchParams.get('page') || 1), limit = Number(url.searchParams.get('limit') || 24);
+          if (!Number.isInteger(page) || page < 1 || !Number.isInteger(limit) || limit < 1 || limit > 100) fail('分页参数无效。');
+          const result = await store.list({ page, limit, q: (url.searchParams.get('q') || '').slice(0, 100), category: url.searchParams.get('category'), ...parseFilters(url.searchParams, { admin: true }), includeHidden: true });
+          json(response, 200, { ...result, items: result.items.map(publicListing) });
+        } else if (adminMatch && request.method === 'POST') {
+          accounts.origin(request);
+          const input = await body(request);
+          if (!input || typeof input !== 'object' || Array.isArray(input)) fail('请求数据无效。');
+          const changes = {};
+          if ('title' in input) { changes.title = text(input.title, 60); if (!changes.title) fail('请填写图纸名称。'); }
+          if ('description' in input) changes.description = text(input.description, 1000);
+          if ('category' in input) { if (!(await store.categories()).some(category => category.name === input.category)) fail('图纸分类无效。'); changes.category = input.category; }
+          if ('status' in input) { if (!['published', 'hidden'].includes(input.status)) fail('作品状态无效。'); changes.status = input.status; }
+          if (!Object.keys(changes).length) fail('请求数据无效。');
+          const item = await store.update(adminMatch[1], changes);
+          if (!item) fail('图纸不存在。', 404);
+          json(response, 200, publicListing(item));
+        } else { json(response, 404, { error: '接口不存在。' }); }
+        return true;
+      }
       const collection = url.pathname === '/api/patterns';
       const match = url.pathname.match(/^\/api\/patterns\/([a-f0-9-]{36})(\/project)?$/);
       if (!collection && !match) { json(response, 404, { error: '接口不存在。' }); return true; }
@@ -78,7 +121,7 @@ function createMarketplaceHandler({ store = createSupabaseStore() } = {}) {
         if (!Number.isInteger(page) || page < 1 || !Number.isInteger(limit) || limit < 1 || limit > 100) fail('分页参数无效。');
         const q = (url.searchParams.get('q') || '').toLowerCase();
         const category = url.searchParams.get('category');
-        const result = await store.list({ page, limit, q, category });
+        const result = await store.list({ page, limit, q, category, ...parseFilters(url.searchParams) });
         json(response, 200, { ...result, items: result.items.map(publicListing) });
       } else if (request.method === 'GET' && match) {
         if (match[2] && !await accounts.user(request)) fail('请先登录后再载入或下载图纸。', 401);
@@ -93,7 +136,7 @@ function createMarketplaceHandler({ store = createSupabaseStore() } = {}) {
         }
         const user = await accounts.user(request);
         if (!user) fail('请先登录后再提交图纸。', 401);
-        const item = { ...validate({ ...await body(request), author: user.username }), id: randomUUID(), createdAt: new Date().toISOString() };
+        const item = { ...validate({ ...await body(request), author: user.username }, (await store.categories()).filter(category => category.active).map(category => category.name)), id: randomUUID(), createdAt: new Date().toISOString() };
         json(response, 201, await store.create(item));
       } else { response.setHeader('Allow', collection ? 'GET, POST' : 'GET'); json(response, 405, { error: '请求方法不支持。' }); }
     } catch (error) { if (!error.status) console.error(error); if (!response.destroyed) json(response, error.status || 500, { error: error.status ? error.message : '服务暂时不可用，请稍后重试。' }); }

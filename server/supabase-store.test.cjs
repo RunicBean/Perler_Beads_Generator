@@ -53,3 +53,37 @@ test('session creation requests JSON representation and database limits map to 4
   const limited = createSupabaseStore({ url: 'https://example.supabase.co', key: 'sb_secret_test', fetchImpl: async () => new Response(JSON.stringify({ code:'P0001', message:'Too many attempts' }), { status:400 }) });
   await assert.rejects(limited.event({}), e => e.status === 429);
 });
+
+test('complexity filters, private moderation visibility and updates map to database parameters', async () => {
+  const calls = [];
+  const store = createSupabaseStore({ url: 'https://example.supabase.co', key: 'sb_secret_test', fetchImpl: async (url, options) => {
+    calls.push({ url, options });
+    return new Response(JSON.stringify(url.includes('/rpc/') ? { items: [], total: 0 } : [{ id: 'pattern', status: 'hidden', created_at: '2026-10-20' }]));
+  } });
+  await store.list({ page: 1, limit: 24, q: '', beads: 'small', colors: 'few', continuity: 'continuous', sort: 'continuous' });
+  const filters = JSON.parse(calls[0].options.body);
+  assert.equal(filters.bead_range, 'small'); assert.equal(filters.color_range, 'few'); assert.equal(filters.continuity_range, 'continuous');
+  assert.equal(filters.sort_order, 'continuous'); assert.equal(filters.include_hidden, undefined);
+  await store.list({ page: 1, limit: 24, q: '', includeHidden: true, status: 'hidden' });
+  assert.equal(JSON.parse(calls[1].options.body).include_hidden, true); assert.equal(JSON.parse(calls[1].options.body).filter_status, 'hidden');
+  await store.get('pattern'); assert.match(calls[2].url, /status=eq.published/);
+  const updated = await store.update('pattern', { status: 'hidden' });
+  assert.equal(updated.status, 'hidden'); assert.equal(calls[3].options.method, 'PATCH');
+  assert.deepEqual(JSON.parse(calls[3].options.body), { status: 'hidden' });
+});
+
+test('category catalog maps names, order and active state, and handles duplicate names', async () => {
+  const calls = [];
+  const store = createSupabaseStore({ url: 'https://example.supabase.co', key: 'sb_secret_test', fetchImpl: async (url, options) => {
+    calls.push({ url, options });
+    return new Response(JSON.stringify([{ id: 'category-id', name: '挂件', name_en: 'Charms', sort_order: 5, active: false }]));
+  } });
+  assert.deepEqual(await store.categories(), [{ id: 'category-id', name: '挂件', nameEn: 'Charms', sortOrder: 5, active: false }]);
+  assert.match(calls[0].url, /order=sort_order.asc,name.asc/);
+  await store.saveCategory(undefined, { name: '挂件', nameEn: 'Charms', sortOrder: 5 });
+  assert.equal(calls[1].options.method, 'POST'); assert.deepEqual(JSON.parse(calls[1].options.body), { name: '挂件', name_en: 'Charms', sort_order: 5 });
+  await store.saveCategory('category-id', { active: false });
+  assert.equal(calls[2].options.method, 'PATCH'); assert.deepEqual(JSON.parse(calls[2].options.body), { active: false });
+  const duplicate = createSupabaseStore({ url: 'https://example.supabase.co', key: 'sb_secret_test', fetchImpl: async () => new Response(JSON.stringify({ code: '23505' }), { status: 409 }) });
+  await assert.rejects(duplicate.saveCategory(undefined, { name: 'duplicate' }), error => error.status === 409 && error.message === '分类名称已存在。');
+});

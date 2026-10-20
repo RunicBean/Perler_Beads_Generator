@@ -1,4 +1,5 @@
 // Encode a flat pixel preview without exposing layers or palette identifiers.
+const { patternMetrics } = require('./pattern-filters.cjs');
 const { deflateSync } = require('node:zlib');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -12,7 +13,6 @@ function publicListing(item) {
  project.cells.forEach((id, i) => { const hex = colors.get(id); if (!hex) return; const offset = Math.floor(i / width) * (width * 4 + 1) + 1 + (i % width) * 4; bytes[offset] = parseInt(hex.slice(1,3),16); bytes[offset+1] = parseInt(hex.slice(3,5),16); bytes[offset+2] = parseInt(hex.slice(5,7),16); bytes[offset+3] = 255; });
  const header = Buffer.alloc(13); header.writeUInt32BE(width); header.writeUInt32BE(height,4); header[8]=8; header[9]=6;
  const png = Buffer.concat([Buffer.from([137,80,78,71,13,10,26,10]),chunk('IHDR',header),chunk('IDAT',deflateSync(bytes)),chunk('IEND',Buffer.alloc(0))]);
- const cells = project.cells.filter(Boolean);
- return { ...metadata, width, height, beads: cells.length, colors: new Set(cells).size, preview: `data:image/png;base64,${png.toString('base64')}` };
+ return { ...metadata, width, height, ...patternMetrics(project), preview: `data:image/png;base64,${png.toString('base64')}` };
 }
 module.exports = { publicListing };

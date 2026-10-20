@@ -10,5 +10,5 @@ function t(key, params = {}, locale = 'zh') {
  return template.replace(/\{(\w+)\}/g, (all, name) => params[name] === undefined ? all : String(params[name]));
 }
 const categoryKeys = { '全部':'all','可爱动物':'animals','花草自然':'nature','像素游戏':'games','生活小物':'everyday','其他':'other' };
-function categoryLabel(value, locale) { return categoryKeys[value] ? t('category.'+categoryKeys[value], {}, locale) : value; }
+function categoryLabel(value, locale, categories) { const category = categories?.find(item => item.name === value); if (category) return locale === 'en' && category.nameEn ? category.nameEn : category.name; return categoryKeys[value] ? t('category.'+categoryKeys[value], {}, locale) : value; }
 module.exports = { messages, locales, normalizeLocale, stripLocale, localePath, t, categoryLabel };

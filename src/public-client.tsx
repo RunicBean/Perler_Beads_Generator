@@ -1,4 +1,5 @@
 import { t, useLocale, localePath, getLocale } from './i18n';
+import MarketAdmin from './MarketAdmin';
 import Account, { api, track } from './Account';
 import { normalizeProject } from './project';
 import { getColor } from './palette';
@@ -9,6 +10,7 @@ function PublicControls() {
  const [project,setProject]=useState<ReturnType<typeof normalizeProject> | null>(null);
  const [error,setError]=useState('');
  const [retry,setRetry]=useState(0);
+ const adminTarget=document.getElementById('market-admin-root');
  const target=document.getElementById('pattern-actions');
  const id=target?.dataset.id;
  useEffect(()=>{let active=true;setProject(null);setError('');if(loggedIn&&id)void api(`patterns/${id}/project`).then(r=>{if(active)setProject(normalizeProject(r.project));}).catch(e=>{if(active)setError(e.message);});return()=>{active=false;};},[loggedIn,id,retry,locale]);
@@ -20,7 +22,7 @@ function PublicControls() {
   } catch(e){setError((e as Error).message);}
  }
  const colors=new Map<string,number>(); project?.cells.forEach(id=>{if(id)colors.set(id,(colors.get(id)||0)+1);});
- return <><Account onLoginChange={setLoggedIn}/>{target&&ReactDOM.createPortal(<>
+ return <><Account onLoginChange={setLoggedIn}/>{adminTarget && ReactDOM.createPortal(<MarketAdmin loggedIn={loggedIn}/>, adminTarget)}{target&&ReactDOM.createPortal(<>
   {!loggedIn?<p>{t('common.loginRequired', {}, locale)}</p>:<><div className="actions"><button className="button" onClick={()=>void act(false)}>{t('common.load', {}, locale)}</button><button onClick={()=>void act(true)}>{t('common.download', {}, locale)}</button></div><h2>{t('common.colorUsage', {}, locale)}</h2>{project?<div className="color-usage">{[...colors].sort((a,b)=>b[1]-a[1]).map(([id,n])=><span key={id}><i style={{background:getColor(id)?.hex}}/>{getColor(id)?.primaryCode} · {t('common.beadCount', { count: n }, locale)}</span>)}</div>:!error&&<p role="status">{t('common.loading', {}, locale)}</p>}</>}
   {error&&<p role="alert">{error} <button onClick={()=>setRetry(v=>v+1)}>{t('common.retry', {}, locale)}</button></p>}
  </>,target)}</>;

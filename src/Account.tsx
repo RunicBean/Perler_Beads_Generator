@@ -1,4 +1,4 @@
-import { t, useLocale, formatNumber } from './i18n';
+import { t, useLocale, formatNumber, localePath } from './i18n';
 const { useState, useEffect } = React;
 type User = { id: string; username: string; admin: boolean };
 export async function api(path: string, data?: unknown) {
@@ -30,7 +30,7 @@ export default function Account({ recordVisit = true, onLoginChange }: { recordV
   useEffect(() => { if (!statsOpen) return; let active = true; setStats(null); setError(''); void api(`analytics?days=${days}`).then(r => { if (active) setStats(r); }).catch(e => { if (active) setError(e.message); }); return () => { active = false; }; }, [statsOpen, days, locale]);
   async function submit(e: React.FormEvent) { e.preventDefault(); setBusy(true); setError(''); try { const r = await api(`auth/${register ? 'register' : 'login'}`, { username, password }); setUser(r.user); setPassword(''); setOpen(false); } catch (e) { setError((e as Error).message); } finally { setBusy(false); } }
   return <div className="account-controls">
-    {user ? <><span>{user.username}</span>{user.admin && <button onClick={() => { setOpen(false); setStatsOpen(true); }}>{t('account.statistics', {}, locale)}</button>}<button disabled={busy} onClick={async () => { setBusy(true); setError(''); try { await api('auth/logout', {}); setUser(null); setStatsOpen(false); } catch (e) { setError((e as Error).message); } finally { setBusy(false); } }}>{t('account.logout', {}, locale)}</button></> : <button onClick={() => { setError(''); setOpen(true); }}>{t('account.signInRegister', {}, locale)}</button>}
+    {user ? <><span>{user.username}</span>{user.admin && <a href={localePath('/admin/patterns', locale)}>{t('admin.title', {}, locale)}</a>}{user.admin && <button onClick={() => { setOpen(false); setStatsOpen(true); }}>{t('account.statistics', {}, locale)}</button>}<button disabled={busy} onClick={async () => { setBusy(true); setError(''); try { await api('auth/logout', {}); setUser(null); setStatsOpen(false); } catch (e) { setError((e as Error).message); } finally { setBusy(false); } }}>{t('account.logout', {}, locale)}</button></> : <button onClick={() => { setError(''); setOpen(true); }}>{t('account.signInRegister', {}, locale)}</button>}
     {!open && !statsOpen && error && <span role="alert">{error}</span>}
     {(open || statsOpen) && <div className="account-backdrop"><section className="account-dialog" role="dialog" aria-modal="true" aria-label={statsOpen ? t('account.statistics', {}, locale) : t('account.signInLabel', {}, locale)} onKeyDown={e => { if (e.key === 'Escape') { setOpen(false); setStatsOpen(false); } }}>
       <button className="account-close" aria-label={t('common.close', {}, locale)} onClick={() => { setOpen(false); setStatsOpen(false); setPassword(''); }}>×</button>

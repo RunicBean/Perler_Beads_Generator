@@ -34,5 +34,14 @@
   "数据库连接失败，请稍后重试。": "error.databaseConnection",
   "操作过于频繁，请稍后重试。": "error.rateLimit",
   "数据库请求失败，请检查 Supabase 配置和建表 SQL。": "error.databaseRequest",
-  "数据库未返回保存结果。": "error.databaseSave"
+  "数据库未返回保存结果。": "error.databaseSave",
+  "仅管理员可管理市集作品。": "error.adminPatterns",
+  "作品状态无效。": "error.patternStatus",
+  "筛选参数无效。": "error.patternFilters",
+  "分类名称无效。": "error.categoryName",
+  "分类排序须为 0–9999 的整数。": "error.categoryOrder",
+  "分类状态无效。": "error.categoryState",
+  "分类不存在。": "error.categoryMissing",
+  "分类名称已存在。": "error.categoryDuplicate",
+  "分类已变更，请刷新后重试。": "error.categoryChanged"
 }

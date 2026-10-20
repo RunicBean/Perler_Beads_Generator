@@ -1,4 +1,6 @@
+import type { MarketCategory } from './marketCategories';
 import { t, useLocale, localePath, categoryLabel, formatDate } from './i18n';
+import { ComplexityFilters, emptyMarketFilters, matchesComplexity, projectContinuity } from './MarketFilters';
 import Account, { api } from './Account';
 import { createProject, normalizeProject } from './project';
 import { completePalette, getColor } from './palette';
@@ -8,8 +10,7 @@ import type { BeadProject } from './types';
 const { useState, useEffect } = React;
 const favoritesKey = 'perler:marketplace:favorites';
 const storageKey = 'perler:marketplace:v1';
-type Listing = { id: string; title: string; author: string; description: string; category: string; createdAt: string; project?: BeadProject; width: number; height: number; beads: number; colors: number; preview?: string; favorite: boolean; demo?: boolean };
-const categories = ['全部', '可爱动物', '花草自然', '像素游戏', '生活小物', '其他'];
+type Listing = { id: string; title: string; author: string; description: string; category: string; createdAt: string; project?: BeadProject; width: number; height: number; beads: number; colors: number; continuity?: number; preview?: string; favorite: boolean; demo?: boolean };
 function samples(): Listing[] {
   const shapes = [
     ['草莓小挂件', '花草自然', ['..gg.gg..','...ggg...','..rrrrr..','.rrrrrrr.','.ryrrryr.','..rryrr..','...rrr...','....r....']],
@@ -34,7 +35,7 @@ function distance(a:string,b:string) { return [1,3,5].reduce((sum,i) => sum + (p
 function readListings(): Listing[] {
   try { const raw = localStorage.getItem(storageKey); const parsed = raw ? JSON.parse(raw) : null; return Array.isArray(parsed) ? parsed.filter(x => x && typeof x.id === 'string' && x.project && Array.isArray(x.project.cells)).map(x => ({ ...x, width: x.project.width, height: x.project.height, ...stats(x.project) })) : samples(); } catch { return samples(); }
 }
-function stats(project: BeadProject) { const cells = project.cells.filter(Boolean); return { beads: cells.length, colors: new Set(cells).size }; }
+function stats(project: BeadProject) { const cells = project.cells.filter(Boolean); return { beads: cells.length, colors: new Set(cells).size, continuity: projectContinuity(project) }; }
 function Pattern({ project }: {project: BeadProject}) {
   const ref = React.useRef<HTMLCanvasElement>(null);
   useEffect(() => {
@@ -53,6 +54,8 @@ export default function Marketplace({ current, onClose, onEdit, quickSubmit = fa
   const [heroProject] = useState(() => samples()[0].project!);
   const [localListings] = useState(readListings);
   const [listings,setListings] = useState<Listing[]>([]);
+  const [categories, setCategories] = useState<MarketCategory[]>([]);
+  const activeCategories = categories.filter(item => item.active);
   const [connected,setConnected] = useState(false);
   const [loading,setLoading] = useState(true);
   const [publishing,setPublishing] = useState(false);
@@ -66,11 +69,12 @@ export default function Marketplace({ current, onClose, onEdit, quickSubmit = fa
   const [title,setTitle] = useState(current.name === 'Untitled Pattern' ? '' : current.name);
   const [author,setAuthor] = useState('');
   const [description,setDescription] = useState('');
-  const [category,setCategory] = useState('其他');
-  const [filter,setFilter] = useState('全部');
+  const [category,setCategory] = useState('');
+  const [filter,setFilter] = useState('');
   const [search,setSearch] = useState('');
   const [favorites,setFavorites] = useState(false);
   const [sort,setSort] = useState('new');
+  const [complexity, setComplexity] = useState(emptyMarketFilters);
   const [error,setError] = useState('');
   useEffect(() => { const change = () => setRoute(window.location.hash.slice(1)); window.addEventListener('hashchange',change); return () => window.removeEventListener('hashchange',change); },[]);
   useEffect(() => {
@@ -78,6 +82,10 @@ export default function Marketplace({ current, onClose, onEdit, quickSubmit = fa
     setLoading(true);
     (async () => {
       try {
+        const catalog: { items: MarketCategory[] } = await api('categories');
+        if (controller.signal.aborted) return;
+        setCategories(catalog.items);
+        setCategory(current => catalog.items.some(item => item.active && item.name === current) ? current : catalog.items.find(item => item.active)?.name || '');
         const items: Listing[] = [];
         let page = 1;
         let total = 0;
@@ -145,7 +153,7 @@ export default function Marketplace({ current, onClose, onEdit, quickSubmit = fa
   const usageProject = loggedIn && detailProject?.id === selected?.id ? detailProject?.project : undefined;
   const colorUsage = new Map<string, number>();
   usageProject?.cells.forEach(id => { if (id) colorUsage.set(id, (colorUsage.get(id) || 0) + 1); });
-  const visible = decorated.filter(x => (filter === '全部' || x.category === filter) && (!favorites || x.favorite) && `${x.title} ${x.author} ${x.description}`.toLowerCase().includes(search.toLowerCase())).sort((a,b) => sort === 'small' ? a.beads-b.beads : b.createdAt.localeCompare(a.createdAt));
+  const visible = decorated.filter(x => matchesComplexity(x, complexity) && (filter === '' || x.category === filter) && (!favorites || x.favorite) && `${x.title} ${x.author} ${x.description}`.toLowerCase().includes(search.toLowerCase())).sort((a,b) => (sort === 'small' ? a.beads-b.beads : sort === 'colors' ? a.colors-b.colors : sort === 'continuous' ? (b.continuity ?? 0)-(a.continuity ?? 0) : 0) || b.createdAt.localeCompare(a.createdAt));
   function favorite(item:Listing) {
     const next = favoriteIds.includes(item.id) ? favoriteIds.filter(id => id !== item.id) : [...favoriteIds, item.id];
     try { localStorage.setItem(favoritesKey,JSON.stringify(next)); setFavoriteIds(next); }
@@ -175,12 +183,13 @@ export default function Marketplace({ current, onClose, onEdit, quickSubmit = fa
     <div className="market-content"><p className="market-local">{loading ? t('marketUI.connecting') : connected ? t('marketUI.connected') : t('marketUI.offline')}</p>{error && <p role="alert" className="market-error">{error} {!connected && <button onClick={() => setReload(x => x + 1)}>{t('marketUI.reconnect')}</button>}</p>}
     {submitting ? <div className="market-submit"><div><p className="market-eyebrow">SHARE YOUR PIXELS</p><h1>{t('marketUI.shareHeading')}</h1><p>{t('marketUI.shareIntro')}</p><div className="market-art"><Pattern project={source}/></div><p>{t('market.summary', { width: source.width, height: source.height, ...stats(source) }, locale)}</p><label className="market-upload">{t('marketUI.replaceFile')}<input type="file" accept=".json,application/json" onChange={e=>{const file=e.target.files?.[0]; if(file) void upload(file); e.target.value='';}}/></label></div>
     <form onSubmit={e=>{e.preventDefault(); void publish();}}>
-    <label>{t('marketUI.patternTitle')}<input required maxLength={60} value={title} onChange={e=>setTitle(e.target.value)} placeholder={t('marketUI.patternPlaceholder')}/></label><label>{t('marketUI.author')}<input maxLength={30} value={author} onChange={e=>setAuthor(e.target.value)} placeholder={t('marketUI.authorPlaceholder')}/></label><label>{t('marketUI.category')}<select value={category} onChange={e=>setCategory(e.target.value)}>{categories.slice(1).map(c=><option key={c} value={c}>{categoryLabel(c, locale)}</option>)}</select></label><label>{t('marketUI.description')}<textarea maxLength={1000} rows={5} value={description} onChange={e=>setDescription(e.target.value)} placeholder={t('marketUI.descriptionPlaceholder')}/></label><p>{t('marketUI.permission')}</p><div className="market-actions"><button type="button" onClick={()=>setSubmitting(false)}>{t('marketUI.cancel')}</button><button className="market-primary" type="submit" disabled={publishing || !connected || loading}>{publishing ? t('marketUI.publishing') : t('marketUI.publish')}</button></div></form></div>
-    : selected ? <><a href="#marketplace" className="market-back">{t('marketUI.all')}</a><div className="market-detail"><div className="market-art">{preview(selected)}</div><div><p className="market-eyebrow">{categoryLabel(selected.category, locale)} {selected.demo && t('marketUI.demoSuffix')}</p><h1>{selected.title}</h1><p>by {selected.author} · {formatDate(selected.createdAt, locale)}</p><div className="market-stats"><span><b>{selected.width} × {selected.height}</b>{t('marketUI.dimensions')}</span><span><b>{selected.beads}</b>{t('marketUI.beads')}</span><span><b>{selected.colors}</b>{t('marketUI.colors')}</span></div><p className="market-description">{selected.description || t('marketUI.noDescription')}</p><div className="market-actions"><button className="market-primary" onClick={()=>void usePattern(selected, false)}>{t('common.load')}</button><button onClick={()=>favorite(selected)}>{selected.favorite?t('marketUI.favorited'):t('marketUI.favorite')}</button><button onClick={()=>void usePattern(selected, true)}>{t('common.download')}</button></div><p>{t('marketUI.undoHint')}</p>{!loggedIn ? <p>{t('common.loginRequired')}</p> : <><h3>{t('common.colorUsage')}</h3>{usageProject ? <div className="market-colors">{[...colorUsage].sort((a,b) => b[1]-a[1]).map(([id,count]) => <span key={id}><i style={{background:getColor(id)?.hex}}/>{getColor(id)?.primaryCode}<b>{t('common.beadCount', { count }, locale)}</b></span>)}</div> : usageError ? <p role="alert">{usageError} <button onClick={() => setReload(value => value + 1)}>{t('common.retry')}</button></p> : <p role="status">{t('marketUI.loadingColors')}</p>}</>}</div></div></>
+    <label>{t('marketUI.patternTitle')}<input required maxLength={60} value={title} onChange={e=>setTitle(e.target.value)} placeholder={t('marketUI.patternPlaceholder')}/></label><label>{t('marketUI.author')}<input maxLength={30} value={author} onChange={e=>setAuthor(e.target.value)} placeholder={t('marketUI.authorPlaceholder')}/></label><label>{t('marketUI.category')}<select required disabled={!activeCategories.length} value={category} onChange={e=>setCategory(e.target.value)}>{!activeCategories.length && <option value="">{t('adminCategory.noneActive')}</option>}{activeCategories.map(c=><option key={c.id} value={c.name}>{categoryLabel(c.name, locale, categories)}</option>)}</select></label><label>{t('marketUI.description')}<textarea maxLength={1000} rows={5} value={description} onChange={e=>setDescription(e.target.value)} placeholder={t('marketUI.descriptionPlaceholder')}/></label><p>{t('marketUI.permission')}</p><div className="market-actions"><button type="button" onClick={()=>setSubmitting(false)}>{t('marketUI.cancel')}</button><button className="market-primary" type="submit" disabled={publishing || !connected || loading || !category}>{publishing ? t('marketUI.publishing') : t('marketUI.publish')}</button></div></form></div>
+    : selected ? <><a href="#marketplace" className="market-back">{t('marketUI.all')}</a><div className="market-detail"><div className="market-art">{preview(selected)}</div><div><p className="market-eyebrow">{categoryLabel(selected.category, locale, categories)} {selected.demo && t('marketUI.demoSuffix')}</p><h1>{selected.title}</h1><p>by {selected.author} · {formatDate(selected.createdAt, locale)}</p><div className="market-stats"><span><b>{selected.width} × {selected.height}</b>{t('marketUI.dimensions')}</span><span><b>{selected.beads}</b>{t('marketUI.beads')}</span><span><b>{selected.colors}</b>{t('marketUI.colors')}</span><span title={t('marketFilter.hint')}><b>{selected.continuity ?? 0}%</b>{t('marketFilter.continuity')}</span></div><p className="market-description">{selected.description || t('marketUI.noDescription')}</p><div className="market-actions"><button className="market-primary" onClick={()=>void usePattern(selected, false)}>{t('common.load')}</button><button onClick={()=>favorite(selected)}>{selected.favorite?t('marketUI.favorited'):t('marketUI.favorite')}</button><button onClick={()=>void usePattern(selected, true)}>{t('common.download')}</button></div><p>{t('marketUI.undoHint')}</p>{!loggedIn ? <p>{t('common.loginRequired')}</p> : <><h3>{t('common.colorUsage')}</h3>{usageProject ? <div className="market-colors">{[...colorUsage].sort((a,b) => b[1]-a[1]).map(([id,count]) => <span key={id}><i style={{background:getColor(id)?.hex}}/>{getColor(id)?.primaryCode}<b>{t('common.beadCount', { count }, locale)}</b></span>)}</div> : usageError ? <p role="alert">{usageError} <button onClick={() => setReload(value => value + 1)}>{t('common.retry')}</button></p> : <p role="status">{t('marketUI.loadingColors')}</p>}</>}</div></div></>
     : loading ? <div className="market-empty" role="status">{t('marketUI.loadingPatterns')}</div> : route.startsWith('marketplace/') ? <div className="market-empty"><h2>{t('marketUI.missingHeading')}</h2><p>{t('marketUI.missingHint')}</p><a href="#marketplace">{t('marketUI.backList')}</a></div>
     : <><div className="market-hero"><div><p className="market-eyebrow">A LITTLE BEAD, A LOT OF IDEAS</p><h1>{t('marketUI.heroLineOne')}<br/>{t('marketUI.heroLineTwo')}</h1><p>{t('marketUI.heroIntro')}</p><button className="market-primary" onClick={()=>setSubmitting(true)}>{t('marketUI.share')}</button></div><div className="market-hero-art"><Pattern project={heroProject}/><span>{t('marketUI.heroTagline')}</span></div></div>
-    <div className="market-toolbar"><h2>{t('marketUI.browse')} <small>{t('marketUI.patternCount', { count: visible.length }, locale)}</small></h2><input type="search" aria-label={t('market.search')} placeholder={t('marketUI.searchPlaceholder')} value={search} onChange={e=>setSearch(e.target.value)}/><select aria-label={t('marketUI.sort')} value={sort} onChange={e=>setSort(e.target.value)}><option value="new">{t('marketUI.newest')}</option><option value="small">{t('marketUI.smallest')}</option></select></div><div className="market-filters">{categories.map(c=><button key={c} className={filter===c?'active':''} onClick={()=>setFilter(c)}>{categoryLabel(c, locale)}</button>)}<button className={favorites?'active':''} onClick={()=>setFavorites(!favorites)}>{t('marketUI.favorites')}</button></div>
-    <div className="market-grid">{visible.map(item=><article className="market-card" key={item.id}><a href={item.demo ? `#marketplace/${item.id}` : localePath(`/patterns/${item.id}`, locale)} className="market-card-image">{preview(item)}<span>{item.demo?t('marketUI.demo'):categoryLabel(item.category, locale)}</span></a><div className="market-card-body"><div><a href={item.demo ? `#marketplace/${item.id}` : localePath(`/patterns/${item.id}`, locale)}><h3>{item.title}</h3></a><button aria-label={`${item.favorite?t('marketUI.removeFavorite'):t('marketUI.saveFavorite')}${item.title}`} onClick={()=>favorite(item)}>{item.favorite?'♥':'♡'}</button></div><p>by {item.author}</p><footer>{t('market.summary', { width: item.width, height: item.height, beads: item.beads, colors: item.colors }, locale)}</footer></div></article>)}</div>{!visible.length && <div className="market-empty"><h2>{t('marketUI.noMatches')}</h2><p>{t('marketUI.trySearch')}</p><button onClick={()=>{setSearch('');setFilter('全部');setFavorites(false);}}>{t('marketUI.viewAll')}</button></div>}</>}
+    <div className="market-toolbar"><h2>{t('marketUI.browse')} <small>{t('marketUI.patternCount', { count: visible.length }, locale)}</small></h2><input type="search" aria-label={t('market.search')} placeholder={t('marketUI.searchPlaceholder')} value={search} onChange={e=>setSearch(e.target.value)}/><select aria-label={t('marketUI.sort')} value={sort} onChange={e=>setSort(e.target.value)}><option value="new">{t('marketUI.newest')}</option><option value="small">{t('marketUI.smallest')}</option><option value="colors">{t('marketFilter.fewerColors')}</option><option value="continuous">{t('marketFilter.moreContinuous')}</option></select></div><div className="market-filters"><button className={!filter?'active':''} onClick={()=>setFilter('')}>{t('category.all')}</button>{categories.map(c=><button key={c.id} className={filter===c.name?'active':''} onClick={()=>setFilter(c.name)}>{categoryLabel(c.name, locale, categories)}</button>)}<button className={favorites?'active':''} onClick={()=>setFavorites(!favorites)}>{t('marketUI.favorites')}</button></div>
+    <ComplexityFilters value={complexity} onChange={setComplexity} locale={locale}/>
+    <div className="market-grid">{visible.map(item=><article className="market-card" key={item.id}><a href={item.demo ? `#marketplace/${item.id}` : localePath(`/patterns/${item.id}`, locale)} className="market-card-image">{preview(item)}<span>{item.demo?t('marketUI.demo'):categoryLabel(item.category, locale, categories)}</span></a><div className="market-card-body"><div><a href={item.demo ? `#marketplace/${item.id}` : localePath(`/patterns/${item.id}`, locale)}><h3>{item.title}</h3></a><button aria-label={`${item.favorite?t('marketUI.removeFavorite'):t('marketUI.saveFavorite')}${item.title}`} onClick={()=>favorite(item)}>{item.favorite?'♥':'♡'}</button></div><p>by {item.author}</p><footer>{t('market.summary', { width: item.width, height: item.height, beads: item.beads, colors: item.colors }, locale)} · {t('marketFilter.score', { count: item.continuity ?? 0 }, locale)}</footer></div></article>)}</div>{!visible.length && <div className="market-empty"><h2>{t('marketUI.noMatches')}</h2><p>{t('marketUI.trySearch')}</p><button onClick={()=>{setSearch('');setFilter('');setFavorites(false);setComplexity(emptyMarketFilters);setSort('new');}}>{t('marketUI.viewAll')}</button></div>}</>}
     </div>
   </section>;
 }

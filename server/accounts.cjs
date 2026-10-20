@@ -10,7 +10,7 @@ function createAccounts(store) {
   async function user(req) { const value = token(req); return /^[a-f0-9]{64}$/.test(value) ? await store.session(digest(value)) : null; }
   function cookie(req, res, value, age) { res.setHeader('Set-Cookie', `perler_session=${value}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${age}${req.socket?.encrypted || process.env.VERCEL || process.env.NODE_ENV === 'production' ? '; Secure' : ''}`); }
   function origin(req) { if (req.headers.origin) { let parsed; try { parsed = new URL(req.headers.origin); } catch { fail('来源无效。', 403); } if (parsed.host !== req.headers.host || !['https:', 'http:'].includes(parsed.protocol)) fail('不允许跨站请求。', 403); } }
-  return { user, async route(req, res, url, body, json) {
+  return { user, admin, origin, async route(req, res, url, body, json) {
     const path = url.pathname;
     if (!path.startsWith('/api/auth/') && !path.startsWith('/api/analytics')) return false;
     if (req.method === 'POST') origin(req);

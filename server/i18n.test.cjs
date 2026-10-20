@@ -7,7 +7,8 @@ const {createPublicHandler,home}=require('./public-pages.cjs');
 const {createMarketplaceHandler}=require('./marketplace.cjs');
 const id='12345678-1234-1234-1234-123456789012';
 const item={id,title:'用户作品 <script>',author:'原作者',description:'保留中文描述',category:'可爱动物',createdAt:'2026-10-20T00:00:00Z',project:{width:1,height:1,cells:['mard-a1']}};
-const store={async list(){return{items:[item],total:1};},async get(){return item;}};
+const testCategories = ['可爱动物','花草自然','像素游戏','生活小物','其他'].map((name,i) => ({ id: String(i), name, nameEn: name === '可爱动物' ? 'Cute animals' : name, sortOrder: i, active: true }));
+const store={async categories(){return testCategories;},async list(){return{items:[item],total:1};},async get(){return item;}};
 async function call(handler,path,method='GET',payload,language='en-US'){
  const req=Readable.from(payload===undefined?[]:[Buffer.from(JSON.stringify(payload))]);Object.assign(req,{method,headers:{host:'localhost','content-type':'application/json','accept-language':language}});
  let status,body,headers={};const res={setHeader(k,v){headers[k]=v;},writeHead(s,h){status=s;headers={...headers,...h};},end(b){body=b;}};
