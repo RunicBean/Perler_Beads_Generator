@@ -1,3 +1,6 @@
+import { t, useLocale } from './i18n';
+import { selectionBox, selectBoxCells, translateBox, shiftCells, clampShiftDelta, canShiftSelection } from './moveSelection';
+import type { GridBox } from './moveSelection';
 import { getColor } from './palette';
 import type { ArrowKind, BeadLayer, BeadProject, ClipboardPattern, CopyMode, MirrorDirection, MoveMode, RemoveMode, ShapeFillMode, ShapeKind, TextDirection, ToolId } from './types';
 
@@ -127,6 +130,7 @@ export default function WorkspaceCanvas({
   canEdit,
   lockedHint,
 }: Props) {
+  const [locale] = useLocale();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
@@ -153,6 +157,10 @@ export default function WorkspaceCanvas({
     const timer = window.setTimeout(() => setInspectCell({ x: hoverX, y: hoverY }), 2000);
     return () => window.clearTimeout(timer);
   }, [tool, pointerPressed, isSpaceDown, referenceImageAdjusting, hoverX, hoverY, zoom, pan, project.width, project.height]);
+  const [moveSelectionIndices, setMoveSelectionIndices] = useState<number[]>([]);
+  const [moveBox, setMoveBox] = useState<GridBox | null>(null);
+  const [moveMarquee, setMoveMarquee] = useState<GridBox | null>(null);
+  const moveSnapshotRef = useRef<Array<string | null> | null>(null);
   const [shapeDraft, setShapeDraft] = useState<ShapeDraft | null>(null);
   const [referenceImage, setReferenceImage] = useState<HTMLImageElement | null>(null);
   const [activePointerMode, setActivePointerMode] = useState<'pan' | 'rightErase' | 'move' | 'shape' | 'reference' | null>(null);
@@ -162,6 +170,9 @@ export default function WorkspaceCanvas({
     erasing: false,
     singleCellErasing: false,
     movingPattern: false,
+    moveSelecting: false,
+    moveCommitted: false,
+    moveOriginBox: null as GridBox | null,
     draggingReference: false,
     copySelecting: false,
     shaping: false,
@@ -187,6 +198,33 @@ export default function WorkspaceCanvas({
     shapeLastCellX: 0,
     shapeLastCellY: 0,
   });
+
+  useEffect(() => {
+    setMoveSelectionIndices([]); setMoveBox(null); setMoveMarquee(null);
+    pointerRef.current.moveSelecting = false;
+    moveSnapshotRef.current = null;
+  }, [tool, moveMode, project.activeLayerId, project.width, project.height, canEdit]);
+  useEffect(() => {
+    const cells = getActiveLayerCells(project), snapshot = moveSnapshotRef.current;
+    if (snapshot && !pointerRef.current.movingPattern && (snapshot.length !== cells.length || snapshot.some((id, index) => id !== cells[index]))) {
+      setMoveSelectionIndices([]); setMoveBox(null); setMoveMarquee(null); moveSnapshotRef.current = null;
+    }
+  }, [project]);
+  useEffect(() => {
+    const clear = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || tool !== 'move' || moveMode !== 'partial') return;
+      if (pointerRef.current.movingPattern) {
+        const origin = pointerRef.current.moveOriginCells;
+        if (pointerRef.current.moveCommitted) onCellsChange(origin.slice());
+        pointerRef.current.movingPattern = false; pointerRef.current.drawing = false;
+      }
+      pointerRef.current.moveSelecting = false;
+      setMoveSelectionIndices([]); setMoveBox(null); setMoveMarquee(null); setActivePointerMode(null);
+      moveSnapshotRef.current = null;
+    };
+    window.addEventListener('keydown', clear);
+    return () => window.removeEventListener('keydown', clear);
+  }, [tool, moveMode, onCellsChange]);
 
   const cellSize = 18;
   const referenceImageOptions = useMemo<ReferenceImageRenderOptions>(
@@ -254,8 +292,8 @@ export default function WorkspaceCanvas({
     canvas.style.width = `${wrapper.clientWidth}px`;
     canvas.style.height = `${wrapper.clientHeight}px`;
     context.setTransform(dpr, 0, 0, dpr, 0, 0);
-    drawPattern(context, project, cellSize, zoom, pan, highlightedColorId, highlightedCellIndices, tool, selectedColorId, eraserSize, moveMode, removeMode, mirrorMode, clipboardPattern, copyMode, copySelectionIndices, shapeDraft, hoverPoint, canEdit, referenceImageOptions, textToolValue, textToolDirection, textToolSize, textToolSpacing, formatColorCode);
-  }, [project, cellSize, zoom, pan, highlightedColorId, highlightedCellIndices, tool, selectedColorId, eraserSize, moveMode, removeMode, mirrorMode, clipboardPattern, copyMode, copySelectionIndices, shapeKind, shapeDraft, hoverPoint, canEdit, referenceImageOptions, textToolValue, textToolDirection, textToolSize, textToolSpacing, formatColorCode]);
+    drawPattern(context, project, cellSize, zoom, pan, highlightedColorId, highlightedCellIndices, tool, selectedColorId, eraserSize, moveMode, removeMode, mirrorMode, clipboardPattern, copyMode, copySelectionIndices, shapeDraft, hoverPoint, canEdit, referenceImageOptions, textToolValue, textToolDirection, textToolSize, textToolSpacing, formatColorCode, { indices: moveSelectionIndices, box: moveBox, marquee: moveMarquee });
+  }, [project, cellSize, zoom, pan, highlightedColorId, highlightedCellIndices, tool, selectedColorId, eraserSize, moveMode, removeMode, mirrorMode, clipboardPattern, copyMode, copySelectionIndices, shapeKind, shapeDraft, hoverPoint, canEdit, referenceImageOptions, textToolValue, textToolDirection, textToolSize, textToolSpacing, formatColorCode, moveSelectionIndices, moveBox, moveMarquee]);
 
   useEffect(() => {
     const observer = new ResizeObserver(() => {
@@ -270,7 +308,7 @@ export default function WorkspaceCanvas({
       const context = canvas.getContext('2d');
       if (context) {
         context.setTransform(dpr, 0, 0, dpr, 0, 0);
-        drawPattern(context, project, cellSize, zoom, pan, highlightedColorId, highlightedCellIndices, tool, selectedColorId, eraserSize, moveMode, removeMode, mirrorMode, clipboardPattern, copyMode, copySelectionIndices, shapeDraft, hoverPoint, canEdit, referenceImageOptions, textToolValue, textToolDirection, textToolSize, textToolSpacing, formatColorCode);
+        drawPattern(context, project, cellSize, zoom, pan, highlightedColorId, highlightedCellIndices, tool, selectedColorId, eraserSize, moveMode, removeMode, mirrorMode, clipboardPattern, copyMode, copySelectionIndices, shapeDraft, hoverPoint, canEdit, referenceImageOptions, textToolValue, textToolDirection, textToolSize, textToolSpacing, formatColorCode, { indices: moveSelectionIndices, box: moveBox, marquee: moveMarquee });
       }
       setPan((current) => {
         const next = constrainPan(current, zoom);
@@ -279,7 +317,7 @@ export default function WorkspaceCanvas({
     });
     if (wrapperRef.current) observer.observe(wrapperRef.current);
     return () => observer.disconnect();
-  }, [project, cellSize, zoom, pan, highlightedColorId, highlightedCellIndices, tool, selectedColorId, eraserSize, moveMode, removeMode, mirrorMode, clipboardPattern, copyMode, copySelectionIndices, shapeKind, shapeDraft, hoverPoint, canEdit, referenceImageOptions, textToolValue, textToolDirection, textToolSize, textToolSpacing, formatColorCode]);
+  }, [project, cellSize, zoom, pan, highlightedColorId, highlightedCellIndices, tool, selectedColorId, eraserSize, moveMode, removeMode, mirrorMode, clipboardPattern, copyMode, copySelectionIndices, shapeKind, shapeDraft, hoverPoint, canEdit, referenceImageOptions, textToolValue, textToolDirection, textToolSize, textToolSpacing, formatColorCode, moveSelectionIndices, moveBox, moveMarquee]);
 
   function handlePointerDown(event: React.PointerEvent<HTMLCanvasElement>) {
     setPointerPressed(true);
@@ -293,6 +331,8 @@ export default function WorkspaceCanvas({
     pointerRef.current.erasing = false;
     pointerRef.current.singleCellErasing = false;
     pointerRef.current.movingPattern = false;
+    pointerRef.current.moveSelecting = false;
+    pointerRef.current.moveCommitted = false;
     pointerRef.current.draggingReference = false;
     pointerRef.current.copySelecting = false;
     pointerRef.current.shaping = false;
@@ -377,12 +417,17 @@ export default function WorkspaceCanvas({
     if (tool === 'move') {
       const activeCells = getActiveLayerCells(project);
       const startIndex = cell.y * project.width + cell.x;
-      if (!activeCells[startIndex]) return;
-      const selectionIndices =
-        moveMode === 'partial'
-          ? collectConnectedOccupiedIndices(activeCells, project.width, project.height, cell.x, cell.y)
-          : [];
-      onCommitStart();
+      const insideSelection = moveBox && cell.x >= moveBox.left && cell.x <= moveBox.right && cell.y >= moveBox.top && cell.y <= moveBox.bottom;
+      if (moveMode === 'partial' && (!insideSelection || !moveSelectionIndices.length || event.shiftKey)) {
+        setMoveSelectionIndices([]); setMoveBox(null);
+        pointerRef.current.moveSelecting = true;
+        pointerRef.current.moveStartCellX = cell.x;
+        pointerRef.current.moveStartCellY = cell.y;
+        setMoveMarquee(selectionBox(cell.x, cell.y, cell.x, cell.y, project.width, project.height));
+        return;
+      }
+      if (moveMode === 'layer' && !activeCells[startIndex]) return;
+      const selectionIndices = moveMode === 'partial' ? moveSelectionIndices : [];
       draftCellsRef.current = activeCells.slice();
       pointerRef.current.drawing = true;
       pointerRef.current.movingPattern = true;
@@ -394,6 +439,7 @@ export default function WorkspaceCanvas({
       pointerRef.current.moveLastDy = 0;
       pointerRef.current.moveOriginCells = activeCells.slice();
       pointerRef.current.moveSelectionIndices = selectionIndices;
+      pointerRef.current.moveOriginBox = moveMode === 'partial' ? moveBox : null;
       setActivePointerMode('move');
       return;
     }
@@ -502,10 +548,14 @@ export default function WorkspaceCanvas({
       return;
     }
 
-    const point = canvasToGridPoint(event.clientX, event.clientY, pointerRef.current.movingPattern);
+    const point = canvasToGridPoint(event.clientX, event.clientY, pointerRef.current.movingPattern || pointerRef.current.moveSelecting);
     const cell = point?.cell ?? null;
     setHoverPoint(point);
     onHover(cell ? { ...cell, colorId: getTopVisibleColor(project, cell.y * project.width + cell.x) } : null);
+    if (pointerRef.current.moveSelecting && point) {
+      setMoveMarquee(selectionBox(pointerRef.current.moveStartCellX, pointerRef.current.moveStartCellY, point.gridX, point.gridY, project.width, project.height));
+      return;
+    }
     if (pointerRef.current.copySelecting) {
       if (cell) {
         applyCopySelection(linePoints(pointerRef.current.lastCellX, pointerRef.current.lastCellY, cell.x, cell.y));
@@ -533,7 +583,12 @@ export default function WorkspaceCanvas({
         const proposedDx = Math.floor(point.gridX) - pointerRef.current.moveStartCellX;
         const proposedDy = Math.floor(point.gridY) - pointerRef.current.moveStartCellY;
         const originCells = pointerRef.current.moveOriginCells.length > 0 ? pointerRef.current.moveOriginCells : draftCellsRef.current;
-        const { dx, dy } = clampShiftDelta(originCells, project.width, project.height, proposedDx, proposedDy, pointerRef.current.moveSelectionIndices);
+        let { dx, dy } = clampShiftDelta(originCells, project.width, project.height, proposedDx, proposedDy, pointerRef.current.moveOriginBox ? pointerRef.current.moveSelectionIndices : undefined);
+        const box = pointerRef.current.moveOriginBox;
+        if (box) {
+          dx = Math.min(project.width - 1 - box.right, Math.max(-box.left, dx));
+          dy = Math.min(project.height - 1 - box.bottom, Math.max(-box.top, dy));
+        }
         if (
           pointerRef.current.moveSelectionIndices.length > 0 &&
           !canShiftSelection(originCells, project.width, project.height, dx, dy, pointerRef.current.moveSelectionIndices)
@@ -543,7 +598,14 @@ export default function WorkspaceCanvas({
         if (dx !== pointerRef.current.moveLastDx || dy !== pointerRef.current.moveLastDy) {
           pointerRef.current.moveLastDx = dx;
           pointerRef.current.moveLastDy = dy;
-          onCellsChange(shiftCells(originCells, project.width, project.height, dx, dy, pointerRef.current.moveSelectionIndices));
+          if (!pointerRef.current.moveCommitted) { onCommitStart(); pointerRef.current.moveCommitted = true; }
+          const next = shiftCells(originCells, project.width, project.height, dx, dy, box ? pointerRef.current.moveSelectionIndices : undefined);
+          moveSnapshotRef.current = next.slice();
+          if (box) {
+            setMoveBox(translateBox(box, dx, dy));
+            setMoveSelectionIndices(pointerRef.current.moveSelectionIndices.map(index => index + dy * project.width + dx));
+          }
+          onCellsChange(next);
         }
         return;
       }
@@ -579,6 +641,19 @@ export default function WorkspaceCanvas({
   function handlePointerUp(event: React.PointerEvent<HTMLCanvasElement>) {
     setPointerPressed(false);
     setHoverPoint(event.type === 'pointercancel' ? null : canvasToGridPoint(event.clientX, event.clientY));
+    if (pointerRef.current.moveSelecting) {
+      const point = canvasToGridPoint(event.clientX, event.clientY, true);
+      const box = point && event.type !== 'pointercancel' ? selectionBox(pointerRef.current.moveStartCellX, pointerRef.current.moveStartCellY, point.gridX, point.gridY, project.width, project.height) : null;
+      const cells = getActiveLayerCells(project);
+      const indices = box ? selectBoxCells(cells, project.width, box) : [];
+      setMoveSelectionIndices(indices); setMoveBox(indices.length ? box : null); setMoveMarquee(null);
+      moveSnapshotRef.current = indices.length ? cells.slice() : null;
+      pointerRef.current.moveSelecting = false;
+    }
+    if (event.type === 'pointercancel' && pointerRef.current.movingPattern) {
+      if (pointerRef.current.moveCommitted) onCellsChange(pointerRef.current.moveOriginCells.slice());
+      setMoveSelectionIndices([]); setMoveBox(null); moveSnapshotRef.current = null;
+    }
     if (pointerRef.current.shaping) {
       const draft = shapeDraft ?? {
         kind: shapeKind,
@@ -607,7 +682,7 @@ export default function WorkspaceCanvas({
     pointerRef.current.copySelectionSet = new Set<number>();
     setShapeDraft(null);
     setActivePointerMode(null);
-    event.currentTarget.releasePointerCapture(pointerRef.current.pointerId);
+    if (event.currentTarget.hasPointerCapture(pointerRef.current.pointerId)) event.currentTarget.releasePointerCapture(pointerRef.current.pointerId);
   }
 
   function handlePointerLeave() {
@@ -819,6 +894,10 @@ export default function WorkspaceCanvas({
         onPointerLeave={handlePointerLeave}
         onWheel={handleWheel}
       />
+      {tool === 'move' && moveMode === 'partial' && canEdit && <div className="move-selection-hint">
+        <span role="status">{moveSelectionIndices.length ? t('editor.moveSelected', { count: moveSelectionIndices.length }, locale) : t('editor.moveSelectionHint', {}, locale)}</span>
+        {moveSelectionIndices.length > 0 && <button type="button" onClick={() => { setMoveSelectionIndices([]); setMoveBox(null); setMoveMarquee(null); moveSnapshotRef.current = null; }}>{t('editor.clearSelection', {}, locale)}</button>}
+      </div>}
       {inspectCell && tool === 'pencil' && !pointerPressed && !isSpaceDown && !referenceImageAdjusting && inspectCell.x === hoverX && inspectCell.y === hoverY && (
         <div
           className="canvas-cell-tooltip"
@@ -878,6 +957,7 @@ function drawPattern(
   textToolSize: number,
   textToolSpacing: number,
   formatColorCode?: (colorId: string) => string,
+  moveSelection?: { indices: number[]; box: GridBox | null; marquee: GridBox | null },
 ): void {
   const canvasWidth = context.canvas.width / (window.devicePixelRatio || 1);
   const canvasHeight = context.canvas.height / (window.devicePixelRatio || 1);
@@ -943,7 +1023,7 @@ function drawPattern(
   if (tool === 'copy' && copyMode === 'selection' && copySelectionIndices.length > 0) {
     drawCopySelectionSet(context, copySelectionIndices, project.width, cellSize);
   }
-  if (hoverPoint && (canEdit || tool === 'eyedropper' || tool === 'copy')) {
+  if (hoverPoint && (canEdit || tool === 'eyedropper' || tool === 'copy') && !(tool === 'move' && moveMode === 'partial')) {
     drawToolImpactPreview(context, project, tool, selectedColorId, hoverPoint, eraserSize, moveMode, removeMode, mirrorMode, clipboardPattern, copyMode, copySelectionIndices, textToolValue, textToolDirection, textToolSize, textToolSpacing, cellSize);
   }
   if (shapeDraft && canEdit) {
@@ -958,6 +1038,18 @@ function drawPattern(
   if (project.settings.showCoordinates && cellSize * zoom > 10) drawCoordinates(context, project, cellSize);
   if (tool === 'eraser' && hoverPoint && canEdit && eraserSize > 0) {
     drawBrushCursor(context, hoverPoint.gridX, hoverPoint.gridY, eraserSize, cellSize);
+  }
+  if (tool === 'move' && moveMode === 'partial' && moveSelection) {
+    const box = moveSelection.marquee ?? moveSelection.box;
+    if (box) {
+      if (!moveSelection.marquee) drawCellBoundarySet(context, moveSelection.indices, project.width, cellSize);
+      context.save();
+      context.fillStyle = 'rgba(23, 101, 106, 0.10)'; context.strokeStyle = '#17656a';
+      context.lineWidth = 1.5 / zoom; context.setLineDash([6 / zoom, 4 / zoom]);
+      const x = box.left * cellSize, y = box.top * cellSize, w = (box.right - box.left + 1) * cellSize, h = (box.bottom - box.top + 1) * cellSize;
+      context.fillRect(x, y, w, h); context.strokeRect(x, y, w, h);
+      context.restore();
+    }
   }
   context.restore();
 }
@@ -2067,85 +2159,6 @@ function pasteClipboardPattern(
     next[y * width + x] = colorId;
   });
   return next;
-}
-
-function shiftCells(
-  cells: Array<string | null>,
-  width: number,
-  height: number,
-  dx: number,
-  dy: number,
-  selectionIndices: number[] = [],
-): Array<string | null> {
-  if (dx === 0 && dy === 0) return cells.slice();
-  const moveIndices = selectionIndices.length > 0 ? selectionIndices : cells.flatMap((colorId, index) => (colorId ? [index] : []));
-  const next = selectionIndices.length > 0 ? cells.slice() : Array<string | null>(width * height).fill(null);
-  if (selectionIndices.length > 0) {
-    moveIndices.forEach((index) => {
-      next[index] = null;
-    });
-  }
-  moveIndices.forEach((index) => {
-    const colorId = cells[index];
-    if (!colorId) return;
-    const x = index % width;
-    const y = Math.floor(index / width);
-    const nextX = x + dx;
-    const nextY = y + dy;
-    if (nextX < 0 || nextY < 0 || nextX >= width || nextY >= height) return;
-    next[nextY * width + nextX] = colorId;
-  });
-  return next;
-}
-
-function clampShiftDelta(
-  cells: Array<string | null>,
-  width: number,
-  height: number,
-  dx: number,
-  dy: number,
-  selectionIndices: number[] = [],
-): { dx: number; dy: number } {
-  let minX = width;
-  let maxX = -1;
-  let minY = height;
-  let maxY = -1;
-  const moveIndices = selectionIndices.length > 0 ? selectionIndices : cells.flatMap((colorId, index) => (colorId ? [index] : []));
-  moveIndices.forEach((index) => {
-    const colorId = cells[index];
-    if (!colorId) return;
-    const x = index % width;
-    const y = Math.floor(index / width);
-    minX = Math.min(minX, x);
-    maxX = Math.max(maxX, x);
-    minY = Math.min(minY, y);
-    maxY = Math.max(maxY, y);
-  });
-  if (maxX < 0 || maxY < 0) return { dx: 0, dy: 0 };
-  return {
-    dx: Math.min(width - 1 - maxX, Math.max(-minX, dx)),
-    dy: Math.min(height - 1 - maxY, Math.max(-minY, dy)),
-  };
-}
-
-function canShiftSelection(
-  cells: Array<string | null>,
-  width: number,
-  height: number,
-  dx: number,
-  dy: number,
-  selectionIndices: number[],
-): boolean {
-  const selected = new Set(selectionIndices);
-  return selectionIndices.every((index) => {
-    const x = index % width;
-    const y = Math.floor(index / width);
-    const nextX = x + dx;
-    const nextY = y + dy;
-    if (nextX < 0 || nextY < 0 || nextX >= width || nextY >= height) return false;
-    const nextIndex = nextY * width + nextX;
-    return selected.has(nextIndex) || !cells[nextIndex];
-  });
 }
 
 function mirrorCells(

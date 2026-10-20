@@ -224,7 +224,12 @@
     "common.beadCount.one": "{count} 颗",
     "marketUI.patternCount.one": "{count} 份灵感",
     "editor.generated": "{colors} 色 - {beads} 颗 - 可编辑图案已生成。",
-    "editor.generationFailed": "无法生成这张图片。"
+    "editor.generationFailed": "无法生成这张图片。",
+    "editor.moveBox": "框选移动",
+    "editor.moveSelectionHint": "拖动框选，再拖动选区移动；Shift 重新框选，Esc 取消。",
+    "editor.moveSelected": "已选 {count} 颗 · 拖动选区移动，Shift 重新框选，Esc 取消",
+    "editor.moveSelected.one": "已选 {count} 颗 · 拖动选区移动，Shift 重新框选，Esc 取消",
+    "editor.clearSelection": "清除选区"
   },
   "en": {
     "common.loading": "Loading…",
@@ -451,6 +456,11 @@
     "common.beadCount.one": "{count} bead",
     "marketUI.patternCount.one": "{count} pattern",
     "editor.generated": "{colors} colors - {beads} beads - editable pattern ready.",
-    "editor.generationFailed": "Could not generate this image."
+    "editor.generationFailed": "Could not generate this image.",
+    "editor.moveBox": "Box selection",
+    "editor.moveSelectionHint": "Drag to select, then drag inside to move. Shift: new selection. Esc: clear.",
+    "editor.moveSelected": "{count} beads selected · Drag inside to move. Shift: new selection. Esc: clear.",
+    "editor.moveSelected.one": "{count} bead selected · Drag inside to move. Shift: new selection. Esc: clear.",
+    "editor.clearSelection": "Clear selection"
   }
 }

@@ -138,7 +138,11 @@ export default function ThreePreview({ project, title, emptyLabel, closeLabel, e
     function wheel(event: WheelEvent) {
       event.preventDefault();
       const controls = controlsRef.current;
-      const zoomFactor = event.deltaY > 0 ? 1.1 : 0.9;
+      // Normalize mouse-wheel lines/pages and trackpad pixels before applying
+      // a gentle proportional zoom. Small trackpad events should not each jump 10%.
+      const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? container.clientHeight : 1;
+      const delta = clamp(event.deltaY * unit, -120, 120);
+      const zoomFactor = Math.exp(delta * 0.00035);
       controls.distance = clamp(controls.distance * zoomFactor, controls.minDistance, controls.maxDistance);
       updateCamera(preview, controls);
     }
@@ -239,7 +243,8 @@ export default function ThreePreview({ project, title, emptyLabel, closeLabel, e
         </button>
       </div>
       {expanded && (
-        <div className="three-preview-modal" role="dialog" aria-modal="true" aria-label={title}>
+        <div className="three-preview-modal" role="dialog" aria-modal="true" aria-label={title}
+          onClick={(event) => { if (event.target === event.currentTarget) setExpanded(false); }}>
           <div className="three-preview-modal-panel">
             <div className="three-preview-modal-bar">
               <strong>{title}</strong>

@@ -1531,7 +1531,7 @@ export default function App() {
                     aria-pressed={moveMode === mode}
                     onClick={() => setMoveMode(mode)}
                   >
-                    {mode === 'layer' ? text.moveLayer : text.movePartial}
+                    {mode === 'layer' ? text.moveLayer : t('editor.moveBox', {}, language)}
                   </button>
                 ))}
               </div>

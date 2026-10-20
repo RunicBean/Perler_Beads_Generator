@@ -549,7 +549,7 @@ button:focus-visible {
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.72) inset;
 }
 
-.topbar-actions button {
+.topbar-actions > button {
   min-width: 0;
   padding-inline: 9px;
   white-space: nowrap;
@@ -811,12 +811,12 @@ button:focus-visible {
   font-weight: var(--weight-semibold);
 }
 
-.topbar .print-export-popover .export-submit-button {
+.print-export-popover .export-submit-button {
   background: var(--accent);
   color: #ffffff;
 }
 
-.export-submit-button:hover:not(:disabled) {
+.print-export-popover .export-submit-button:hover:not(:disabled) {
   border-color: var(--accent-hover);
   background: var(--accent-hover);
   color: #ffffff;
@@ -4102,3 +4102,21 @@ button:focus-visible {
 
 .brand-symbol { display: block; width: 38px; height: 38px; flex-shrink: 0; }
 @media(max-width:1500px) { .brand-lockup .brand-symbol { width: 34px; height: 34px; } }
+
+.move-selection-hint {
+  position: absolute;
+  top: 60px;
+  left: 14px;
+  max-width: min(420px, calc(100% - 28px));
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border: 1px solid rgba(23, 101, 106, 0.25);
+  border-radius: 9px;
+  background: rgba(255, 253, 248, 0.95);
+  color: #175e64;
+  font-size: 12px;
+  pointer-events: none;
+}
+.move-selection-hint button { min-height: 26px; padding: 0 7px; white-space: nowrap; pointer-events: auto; }
