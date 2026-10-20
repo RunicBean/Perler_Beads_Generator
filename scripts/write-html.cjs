@@ -15,6 +15,8 @@ function editorHtml(locale) { return `<!doctype html>
     <title>${t('editor.title', {}, locale)}</title>
     <meta name="robots" content="noindex,follow" />
     <link rel="canonical" href="${site()}${localePath('/editor',locale)}" />
+    <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+    <meta name="theme-color" content="#245F50" />
     <link rel="stylesheet" href="/styles.css" />
     <script type="importmap">
       {
@@ -50,3 +52,5 @@ fs.writeFileSync(path.join(dist, 'i18n.js'), 'globalThis.PERLER_MESSAGES = ' + J
 fs.copyFileSync(path.join(process.cwd(), 'src/public.css'), path.join(dist, 'public.css'));
 fs.mkdirSync(path.join(dist, 'examples'), { recursive: true });
 for (const name of ['cartoon-source.png','cartoon-pattern.png']) fs.copyFileSync(path.join(process.cwd(), 'docs', name), path.join(dist,'examples',name));
+
+fs.copyFileSync(path.join(process.cwd(), 'src/assets/logo.svg'), path.join(dist, 'logo.svg'));

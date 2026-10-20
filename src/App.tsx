@@ -1098,12 +1098,7 @@ export default function App() {
 
       <header className="topbar">
         <div className="brand-lockup" aria-label="Perler Beads Generator">
-          <span className="logo-mark" aria-hidden="true">
-            <span />
-            <span />
-            <span />
-            <span />
-          </span>
+          <img className="brand-symbol" src="/logo.svg" alt="" width="38" height="38" />
           <div>
             <strong>{text.appName}</strong>
             <small>
@@ -1135,17 +1130,6 @@ export default function App() {
         <div className="topbar-right">
           <a className="topbar-home" href={localePath('/', language)}>{t('common.home', {}, language)}</a>
           <Account />
-          <a
-            className="github-link"
-            href="https://github.com/Jett-Wu/Perler_Beads_Generator"
-            target="_blank"
-            rel="noreferrer"
-            aria-label="GitHub"
-            title="GitHub"
-          >
-            <GitHubIcon />
-            <span>GitHub</span>
-          </a>
           <div className="language-toggle" aria-label={text.language}>
             <button className={language === 'zh' ? 'active' : ''} onClick={() => setLanguage('zh')}>中</button>
             <button className={language === 'en' ? 'active' : ''} onClick={() => setLanguage('en')}>EN</button>
@@ -2837,14 +2821,6 @@ function ExportIcon() {
       <path d="M10 3v9" />
       <path d="m6.8 8.8 3.2 3.2 3.2-3.2" />
       <path d="M4 13.2v2.6c0 .7.5 1.2 1.2 1.2h9.6c.7 0 1.2-.5 1.2-1.2v-2.6" />
-    </svg>
-  );
-}
-
-function GitHubIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M12 2.5a9.5 9.5 0 0 0-3 18.5c.48.08.66-.2.66-.46v-1.7c-2.68.58-3.25-1.14-3.25-1.14-.44-1.1-1.07-1.4-1.07-1.4-.88-.6.07-.58.07-.58.97.07 1.48 1 1.48 1 .86 1.47 2.25 1.04 2.8.8.09-.62.34-1.04.61-1.28-2.14-.24-4.39-1.07-4.39-4.76 0-1.05.38-1.91 1-2.58-.1-.25-.43-1.24.1-2.55 0 0 .81-.26 2.66.99a9.16 9.16 0 0 1 4.84 0c1.85-1.25 2.66-.99 2.66-.99.53 1.31.2 2.3.1 2.55.62.67 1 1.53 1 2.58 0 3.7-2.26 4.51-4.4 4.75.35.3.66.9.66 1.81v2.5c0 .26.17.55.67.46A9.5 9.5 0 0 0 12 2.5z" />
     </svg>
   );
 }

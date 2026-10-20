@@ -4099,3 +4099,6 @@ button:focus-visible {
   .project-toolbar .topbar-command-zone { margin-left: 0; }
   .project-toolbar .print-export-popover { right: auto; left: 0; max-width: calc(100vw - 24px); }
 }
+
+.brand-symbol { display: block; width: 38px; height: 38px; flex-shrink: 0; }
+@media(max-width:1500px) { .brand-lockup .brand-symbol { width: 34px; height: 34px; } }
