@@ -1,5 +1,7 @@
 {
   "zh": {
+    "editor.zenMode": "禅模式",
+    "editor.zenModeHint": "高亮未填格子，淡化已填格子",
     "common.loading": "加载中…",
     "common.retry": "重试",
     "common.close": "关闭",
@@ -232,6 +234,8 @@
     "editor.clearSelection": "清除选区"
   },
   "en": {
+    "editor.zenMode": "Zen mode",
+    "editor.zenModeHint": "Highlight empty cells and dim filled cells",
     "common.loading": "Loading…",
     "common.retry": "Retry",
     "common.close": "Close",
