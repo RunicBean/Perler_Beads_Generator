@@ -1,7 +1,7 @@
 {
   "zh": {
-    "editor.zenMode": "禅模式",
-    "editor.zenModeHint": "高亮未填格子，淡化已填格子",
+    "editor.showEmptyCells": "空格提示",
+    "editor.emptyCellsHint": "突出没有豆子的格子，淡化已有豆子的格子",
     "common.loading": "加载中…",
     "common.retry": "重试",
     "common.close": "关闭",
@@ -234,8 +234,8 @@
     "editor.clearSelection": "清除选区"
   },
   "en": {
-    "editor.zenMode": "Zen mode",
-    "editor.zenModeHint": "Highlight empty cells and dim filled cells",
+    "editor.showEmptyCells": "Empty cells",
+    "editor.emptyCellsHint": "Highlight cells without beads and dim cells with beads",
     "common.loading": "Loading…",
     "common.retry": "Retry",
     "common.close": "Close",

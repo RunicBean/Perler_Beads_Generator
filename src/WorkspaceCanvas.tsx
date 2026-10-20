@@ -142,7 +142,7 @@ export default function WorkspaceCanvas({
     return () => wrapper.removeEventListener('wheel', preventPageScroll);
   }, []);
   const draftCellsRef = useRef<Array<string | null>>(getActiveLayerCells(project));
-  const [zenMode, setZenMode] = useState(false);
+  const [showEmptyCells, setShowEmptyCells] = useState(false);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isSpaceDown, setIsSpaceDown] = useState(false);
@@ -293,8 +293,8 @@ export default function WorkspaceCanvas({
     canvas.style.width = `${wrapper.clientWidth}px`;
     canvas.style.height = `${wrapper.clientHeight}px`;
     context.setTransform(dpr, 0, 0, dpr, 0, 0);
-    drawPattern(context, project, cellSize, zoom, pan, highlightedColorId, highlightedCellIndices, tool, selectedColorId, eraserSize, moveMode, removeMode, mirrorMode, clipboardPattern, copyMode, copySelectionIndices, shapeDraft, hoverPoint, canEdit, referenceImageOptions, textToolValue, textToolDirection, textToolSize, textToolSpacing, formatColorCode, { indices: moveSelectionIndices, box: moveBox, marquee: moveMarquee }, zenMode);
-  }, [project, cellSize, zoom, pan, highlightedColorId, highlightedCellIndices, tool, selectedColorId, eraserSize, moveMode, removeMode, mirrorMode, clipboardPattern, copyMode, copySelectionIndices, shapeKind, shapeDraft, hoverPoint, canEdit, referenceImageOptions, textToolValue, textToolDirection, textToolSize, textToolSpacing, formatColorCode, moveSelectionIndices, moveBox, moveMarquee, zenMode]);
+    drawPattern(context, project, cellSize, zoom, pan, highlightedColorId, highlightedCellIndices, tool, selectedColorId, eraserSize, moveMode, removeMode, mirrorMode, clipboardPattern, copyMode, copySelectionIndices, shapeDraft, hoverPoint, canEdit, referenceImageOptions, textToolValue, textToolDirection, textToolSize, textToolSpacing, formatColorCode, { indices: moveSelectionIndices, box: moveBox, marquee: moveMarquee }, showEmptyCells);
+  }, [project, cellSize, zoom, pan, highlightedColorId, highlightedCellIndices, tool, selectedColorId, eraserSize, moveMode, removeMode, mirrorMode, clipboardPattern, copyMode, copySelectionIndices, shapeKind, shapeDraft, hoverPoint, canEdit, referenceImageOptions, textToolValue, textToolDirection, textToolSize, textToolSpacing, formatColorCode, moveSelectionIndices, moveBox, moveMarquee, showEmptyCells]);
 
   useEffect(() => {
     const observer = new ResizeObserver(() => {
@@ -309,7 +309,7 @@ export default function WorkspaceCanvas({
       const context = canvas.getContext('2d');
       if (context) {
         context.setTransform(dpr, 0, 0, dpr, 0, 0);
-        drawPattern(context, project, cellSize, zoom, pan, highlightedColorId, highlightedCellIndices, tool, selectedColorId, eraserSize, moveMode, removeMode, mirrorMode, clipboardPattern, copyMode, copySelectionIndices, shapeDraft, hoverPoint, canEdit, referenceImageOptions, textToolValue, textToolDirection, textToolSize, textToolSpacing, formatColorCode, { indices: moveSelectionIndices, box: moveBox, marquee: moveMarquee }, zenMode);
+        drawPattern(context, project, cellSize, zoom, pan, highlightedColorId, highlightedCellIndices, tool, selectedColorId, eraserSize, moveMode, removeMode, mirrorMode, clipboardPattern, copyMode, copySelectionIndices, shapeDraft, hoverPoint, canEdit, referenceImageOptions, textToolValue, textToolDirection, textToolSize, textToolSpacing, formatColorCode, { indices: moveSelectionIndices, box: moveBox, marquee: moveMarquee }, showEmptyCells);
       }
       setPan((current) => {
         const next = constrainPan(current, zoom);
@@ -318,7 +318,7 @@ export default function WorkspaceCanvas({
     });
     if (wrapperRef.current) observer.observe(wrapperRef.current);
     return () => observer.disconnect();
-  }, [project, cellSize, zoom, pan, highlightedColorId, highlightedCellIndices, tool, selectedColorId, eraserSize, moveMode, removeMode, mirrorMode, clipboardPattern, copyMode, copySelectionIndices, shapeKind, shapeDraft, hoverPoint, canEdit, referenceImageOptions, textToolValue, textToolDirection, textToolSize, textToolSpacing, formatColorCode, moveSelectionIndices, moveBox, moveMarquee, zenMode]);
+  }, [project, cellSize, zoom, pan, highlightedColorId, highlightedCellIndices, tool, selectedColorId, eraserSize, moveMode, removeMode, mirrorMode, clipboardPattern, copyMode, copySelectionIndices, shapeKind, shapeDraft, hoverPoint, canEdit, referenceImageOptions, textToolValue, textToolDirection, textToolSize, textToolSpacing, formatColorCode, moveSelectionIndices, moveBox, moveMarquee, showEmptyCells]);
 
   function handlePointerDown(event: React.PointerEvent<HTMLCanvasElement>) {
     setPointerPressed(true);
@@ -925,11 +925,11 @@ export default function WorkspaceCanvas({
       <div className="zoom-controls" aria-label="Canvas zoom controls">
         <button
           type="button"
-          className={zenMode ? 'zen-mode-toggle active' : 'zen-mode-toggle'}
-          aria-pressed={zenMode}
-          title={t('editor.zenModeHint', {}, locale)}
-          onClick={() => setZenMode((current) => !current)}
-        >{t('editor.zenMode', {}, locale)}</button>
+          className={showEmptyCells ? 'empty-cells-toggle active' : 'empty-cells-toggle'}
+          aria-pressed={showEmptyCells}
+          title={t('editor.emptyCellsHint', {}, locale)}
+          onClick={() => setShowEmptyCells((current) => !current)}
+        >{t('editor.showEmptyCells', {}, locale)}</button>
         <button onClick={() => stepZoom(0.9)}>-</button>
         <span>{Math.round(zoom * 100)}%</span>
         <button onClick={() => stepZoom(1.1)}>+</button>
@@ -966,7 +966,7 @@ function drawPattern(
   textToolSpacing: number,
   formatColorCode?: (colorId: string) => string,
   moveSelection?: { indices: number[]; box: GridBox | null; marquee: GridBox | null },
-  zenMode = false,
+  showEmptyCells = false,
 ): void {
   const canvasWidth = context.canvas.width / (window.devicePixelRatio || 1);
   const canvasHeight = context.canvas.height / (window.devicePixelRatio || 1);
@@ -1030,17 +1030,17 @@ function drawPattern(
   }
 
   // Apply after the reference image so empty cells remain visible in either placement.
-  if (zenMode) {
+  if (showEmptyCells) {
     for (let y = 0; y < project.height; y += 1) {
       for (let x = 0; x < project.width; x += 1) {
         const index = y * project.width + x;
         const occupied = visibleLayers.some((layer) => Boolean(layer.cells?.[index]));
         const left = x * cellSize;
         const top = y * cellSize;
-        context.fillStyle = occupied ? 'rgba(255, 253, 247, 0.78)' : 'rgba(255, 220, 112, 0.55)';
+        context.fillStyle = occupied ? 'rgba(255, 253, 247, 0.78)' : 'rgba(209, 229, 231, 0.42)';
         context.fillRect(left, top, cellSize, cellSize);
         if (!occupied) {
-          context.strokeStyle = 'rgba(166, 111, 20, 0.65)';
+          context.strokeStyle = 'rgba(115, 153, 158, 0.32)';
           context.lineWidth = 1 / zoom;
           context.strokeRect(left + 1, top + 1, cellSize - 2, cellSize - 2);
         }

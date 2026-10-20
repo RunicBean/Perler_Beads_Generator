@@ -2639,10 +2639,10 @@ button:focus-visible {
   text-align: center;
 }
 
-.zoom-controls .zen-mode-toggle.active {
-  background: #fff0ba;
-  color: #785014;
-  box-shadow: inset 0 0 0 1px #c5963e;
+.zoom-controls .empty-cells-toggle.active {
+  background: #edf4f4;
+  color: #476c70;
+  box-shadow: inset 0 0 0 1px #b9cdcf;
 }
 
 .zoom-chip {
